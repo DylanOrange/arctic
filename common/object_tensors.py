@@ -159,17 +159,17 @@ def construct_obj(object_model_p):
     json_p = op.join(object_model_p, "object_params.json")
     obj_name = op.basename(object_model_p)
 
-    top_sub_p = f"./data/arctic_data/data/meta/object_vtemplates/{obj_name}/top_keypoints_300.json"
+    top_sub_p = f"../original_packages/arctic/data/arctic_data/data/meta/object_vtemplates/{obj_name}/top_keypoints_300.json"
     bottom_sub_p = top_sub_p.replace("top_", "bottom_")
     with open(top_sub_p, "r") as f:
         sub_top = np.array(json.load(f)["keypoints"])
 
     with open(bottom_sub_p, "r") as f:
         sub_bottom = np.array(json.load(f)["keypoints"])
-    sub_v = np.concatenate((sub_top, sub_bottom), axis=0)
+    sub_v = np.concatenate((sub_top, sub_bottom), axis=0)#subsampled keypoints, have 600 points
 
     with open(parts_p, "r") as f:
-        parts = np.array(json.load(f), dtype=np.bool)
+        parts = np.array(json.load(f), dtype=np.bool)#a bool number, TRUE or FALSE
 
     assert op.exists(mesh_p), f"Not found: {mesh_p}"
 
@@ -203,7 +203,7 @@ def construct_obj(object_model_p):
     obj.parts = torch.LongTensor(parts)
     obj.parts_sub = torch.LongTensor(parts_sub)
 
-    with open("./data/arctic_data/data/meta/object_meta.json", "r") as f:
+    with open("../original_packages/arctic/data/arctic_data/data/meta/object_meta.json", "r") as f:
         object_meta = json.load(f)
     obj.diameter = torch.FloatTensor(np.array(object_meta[obj.obj_name]["diameter"]))
     obj.bbox_top = torch.FloatTensor(bbox_top)
@@ -218,7 +218,7 @@ def construct_obj(object_model_p):
 def construct_obj_tensors(object_names):
     obj_list = []
     for k in object_names:
-        object_model_p = f"./data/arctic_data/data/meta/object_vtemplates/%s" % (k)
+        object_model_p = f"../original_packages/arctic/data/arctic_data/data/meta/object_vtemplates/%s" % (k)
         obj = construct_obj(object_model_p)
         obj_list.append(obj)
 
@@ -250,7 +250,7 @@ def construct_obj_tensors(object_names):
         parts_sub_list.append(obj.parts_sub + 1)
         diameter_list.append(obj.diameter)
 
-    v_list, v_len_list = pad_tensor_list(v_list)
+    v_list, v_len_list = pad_tensor_list(v_list)#v_list: padding all object vertex coordinate into one large tensor, v_len_list: number of each object's vertex
     p_list, p_len_list = pad_tensor_list(parts_list)
     ps_list = torch.stack(parts_sub_list, dim=0)
     assert (p_len_list - v_len_list).sum() == 0
@@ -258,7 +258,7 @@ def construct_obj_tensors(object_names):
     max_len = v_len_list.max()
     mask = torch.zeros(len(obj_list), max_len)
     for idx, vlen in enumerate(v_len_list):
-        mask[idx, :vlen] = 1.0
+        mask[idx, :vlen] = 1.0#a mask to indicate the point in v_list
 
     v_sub_list = torch.stack(v_sub_list, dim=0)
     diameter_list = torch.stack(diameter_list, dim=0)

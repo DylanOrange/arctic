@@ -91,6 +91,8 @@ def prepare_object_template(batch_size, object_tensors, query_names):
     ref_vertices -= ref_mean
 
     v_template = out["v"]
+    #sub and ori in the same coordiante system
+    v_template -= ref_mean
     return (ref_vertices, parts_idx, v_template, mask)
 
 

@@ -12,7 +12,7 @@ from src.datasets.arctic_dataset import ArcticDataset
 
 class TempoDataset(ArcticDataset):
     def _load_data(self, args, split):
-        data_p = f"./data/arctic_data/data/feat/{args.img_feat_version}/{args.setup}_{split}.pt"
+        data_p = f"../original_packages/arctic/data/arctic_data/data/feat/{args.img_feat_version}/{args.setup}_{split}.pt"
         logger.info(f"Loading: {data_p}")
         data = torch.load(data_p)
         imgnames = data["imgnames"]
@@ -61,7 +61,7 @@ class TempoDataset(ArcticDataset):
         inputs_list = []
         load_rgb = True if self.args.method in ["tempo_ft"] else False
         for imgname in imgnames:
-            img_folder = f"./data/arctic_data/data/images/"
+            img_folder = f"../original_packages/arctic/data/arctic_data/data/images/"
             inputs, targets, meta_info = self.getitem(
                 op.join(img_folder, imgname), load_rgb=load_rgb
             )

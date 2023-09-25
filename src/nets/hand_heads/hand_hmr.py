@@ -27,6 +27,7 @@ class HandHMR(nn.Module):
         self.avgpool = nn.AdaptiveAvgPool2d(1)
 
     def init_vector_dict(self, features):
+        #initialize pose, shape and camera paramter 
         batch_size = features.shape[0]
         dev = features.device
         init_pose = (
@@ -37,6 +38,8 @@ class HandHMR(nn.Module):
             .repeat(batch_size, 1)
         )
         init_shape = torch.zeros(1, 10).repeat(batch_size, 1)
+
+        #initialize camera paramter using a cam_init head
         init_transl = self.cam_init(features)
 
         out = {}
@@ -48,6 +51,8 @@ class HandHMR(nn.Module):
 
     def forward(self, features, use_pool=True):
         batch_size = features.shape[0]
+
+        #to get a single image feature vector
         if use_pool:
             feat = self.avgpool(features)
             feat = feat.view(feat.size(0), -1)
@@ -56,6 +61,8 @@ class HandHMR(nn.Module):
 
         init_vdict = self.init_vector_dict(feat)
         init_cam_t = init_vdict["cam_t/wp"].clone()
+
+        #refinement
         pred_vdict = self.hmr_layer(feat, init_vdict, self.n_iter)
 
         pred_rotmat = rot_conv.rotation_6d_to_matrix(

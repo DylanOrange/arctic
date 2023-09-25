@@ -1,3 +1,6 @@
+import torch
+from scipy.spatial.distance import cdist
+
 import common.camera as camera
 import common.data_utils as data_utils
 import common.transforms as tf
@@ -7,6 +10,45 @@ import src.callbacks.process.process_generic as generic
 def process_data(
     models, inputs, targets, meta_info, mode, args, field_max=float("inf")
 ):
+    
+    #add cano coordinates input
+    batch_size = meta_info["intrinsics"].shape[0]
+
+    (
+        v0_r,
+        v0_l,
+        v0_o,
+        pidx,
+        v0_r_full,
+        v0_l_full,
+        v0_o_full,
+        mask,
+        cams,
+    ) = generic.prepare_templates(
+        batch_size,
+        models["mano_r"],
+        models["mano_l"],
+        models["mesh_sampler"],
+        models["arti_head"],
+        meta_info["query_names"],
+    )
+
+    meta_info["v0.r"] = v0_r#64,216,3
+    meta_info["v0.l"] = v0_l#64,216,3
+    meta_info["v0.o"] = v0_o#64,600,3
+    meta_info["cams0"] = cams
+    meta_info["parts_idx"] = pidx
+    meta_info["v0.r.full"] = v0_r_full#64,799,3
+    meta_info["v0.l.full"] = v0_l_full#64,799,3
+    meta_info["v0.o.full"] = v0_o_full#64,3997,3
+    meta_info["mask"] = mask
+
+    N_joint = 21
+    ridx = torch.argmin(torch.cdist(v0_r[:,N_joint:], v0_r_full[:,N_joint:], p=2), dim=2)
+    lidx = torch.argmin(torch.cdist(v0_l[:,N_joint:], v0_l_full[:,N_joint:], p=2), dim=2)
+    oidx = torch.argmin(torch.cdist(v0_o, v0_o_full, p=2), dim=2)
+
+    B = ridx.shape[0]
     img_res = 224
     K = meta_info["intrinsics"]
     gt_pose_r = targets["mano.pose.r"]  # MANO pose parameters
@@ -61,7 +103,7 @@ def process_data(
     gt_vertices_l = gt_out_l.vertices
     gt_root_cano_l = gt_out_l.joints[:, 0]
 
-    # map MANO mesh to object canonical space
+    # map MANO mesh to object canonical space, there is a translation between object cano joint coordinate and posed mano space coordinate
     Tr0 = (joints3d_r0 - gt_model_joints_r).mean(dim=1)
     Tl0 = (joints3d_l0 - gt_model_joints_l).mean(dim=1)
     gt_model_joints_r = joints3d_r0
@@ -147,5 +189,10 @@ def process_data(
     targets["object.f_len"] = out["f_len"]
 
     targets = generic.prepare_interfield(targets, field_max)
+
+    meta_info["dist.ro"] = targets["dist.ro"][torch.arange(B).unsqueeze(1), ridx].clone()#64,195
+    meta_info["dist.lo"] = targets["dist.lo"][torch.arange(B).unsqueeze(1), lidx].clone()#64,195
+    meta_info["dist.or"] = targets["dist.or"][torch.arange(B).unsqueeze(1), oidx].clone()#64,600
+    meta_info["dist.ol"] = targets["dist.ol"][torch.arange(B).unsqueeze(1), oidx].clone()#64,600
 
     return inputs, targets, meta_info

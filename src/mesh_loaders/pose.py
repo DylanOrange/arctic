@@ -29,7 +29,7 @@ def construct_meshes(exp_folder, seq_name, flag, side_angle=None, zoom_out=0.5):
     # load object faces
     obj_name = seq_name.split("_")[1]
     f3d_o = trimesh.load(
-        f"./data/arctic_data/data/meta/object_vtemplates/{obj_name}/mesh.obj",
+        f"../original_packages/arctic/data/arctic_data/data/meta/object_vtemplates/{obj_name}/mesh.obj",
         process=False,
     ).faces
 

@@ -10,7 +10,7 @@ from common.mesh import Mesh
 class MANODecimator:
     def __init__(self):
         data = np.load(
-            "./data/arctic_data/data/meta/mano_decimator_195.npy", allow_pickle=True
+            "../original_packages/arctic/data/arctic_data/data/meta/mano_decimator_195.npy", allow_pickle=True
         ).item()
         mydata = {}
         for key, val in data.items():
@@ -31,7 +31,7 @@ class MANODecimator:
         return verts_sub
 
 
-MODEL_DIR = "./data/body_models/mano"
+MODEL_DIR = "../original_packages/arctic/data/body_models/mano"
 
 SEAL_FACES_R = [
     [120, 108, 778],
@@ -90,11 +90,11 @@ def build_layers(device=None):
     return layers
 
 
-MANO_MODEL_DIR = "./data/body_models/mano"
+MANO_MODEL_DIR = "../original_packages/arctic/data/body_models/mano"
 SMPLX_MODEL_P = {
-    "male": "./data/body_models/smplx/SMPLX_MALE.npz",
-    "female": "./data/body_models/smplx/SMPLX_FEMALE.npz",
-    "neutral": "./data/body_models/smplx/SMPLX_NEUTRAL.npz",
+    "male": "../original_packages/arctic/data/body_models/smplx/SMPLX_MALE.npz",
+    "female": "../original_packages/arctic/data/body_models/smplx/SMPLX_FEMALE.npz",
+    "neutral": "../original_packages/arctic/data/body_models/smplx/SMPLX_NEUTRAL.npz",
 }
 
 
@@ -116,9 +116,9 @@ def build_smplx(batch_size, gender, vtemplate):
 
 
 def build_subject_smplx(batch_size, subject_id):
-    with open("./data/arctic_data/data/meta/misc.json", "r") as f:
+    with open("../original_packages/arctic/data/arctic_data/data/meta/misc.json", "r") as f:
         misc = json.load(f)
-    vtemplate_p = f"./data/arctic_data/data/meta/subject_vtemplates/{subject_id}.obj"
+    vtemplate_p = f"../original_packages/arctic/data/arctic_data/data/meta/subject_vtemplates/{subject_id}.obj"
     mesh = Mesh(filename=vtemplate_p)
     vtemplate = mesh.v
     gender = misc[subject_id]["gender"]

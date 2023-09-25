@@ -56,7 +56,7 @@ def main():
     out_dir = op.join(args.load_ckpt.split("checkpoints")[0], "eval")
 
     with open(
-        f"./data/arctic_data/data/splits_json/protocol_{args.setup}.json",
+        f"../original_packages/arctic/data/arctic_data/data/splits_json/protocol_{args.setup}.json",
         "r",
     ) as f:
         seqs = json.load(f)[args.run_on]

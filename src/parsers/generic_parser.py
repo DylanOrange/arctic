@@ -28,14 +28,14 @@ def add_generic_args(parser):
     parser.add_argument(
         "--trainsplit",
         type=str,
-        default=None,
+        default='train',
         choices=[None, "train", "smalltrain", "minitrain", "tinytrain"],
         help="Amount to subsample training set.",
     )
     parser.add_argument(
         "--valsplit",
         type=str,
-        default=None,
+        default='minival',
         choices=[None, "val", "smallval", "tinyval", "minival"],
         help="Amount to subsample validation set.",
     )
@@ -45,7 +45,7 @@ def add_generic_args(parser):
         default=None,
         help="split for extraction",
     )
-    parser.add_argument("--setup", type=str, default=None)
+    parser.add_argument("--setup", type=str, default='p1')
 
     parser.add_argument("--log_every", type=int, default=None, help="log every k steps")
     parser.add_argument(

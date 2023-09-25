@@ -104,18 +104,23 @@ class FieldSF(nn.Module):
         points_o = meta_info["v0.o"].permute(0, 2, 1)
         points_all = torch.cat((points_r, points_l, points_o), dim=2)
 
+        #get single image feature vector
         img_feat = self.backbone(images)
         img_feat = self.avgpool(img_feat).view(img_feat.shape[0], -1)
         pred_vec = img_feat.clone()
+
+        #downsize image feature vector
         img_feat = self.down(img_feat)
 
         self.num_mano_pts = points_r.shape[2]
         self.num_object_pts = points_o.shape[2]
 
+        #repeat image feature vector
         img_feat_all = img_feat[:, :, None].repeat(
             1, 1, self.num_mano_pts * 2 + self.num_object_pts
         )
 
+        #concat points coordinates with image vector
         pts_all_feat = torch.cat((points_all, img_feat_all), dim=1)
         dist_ro, dist_lo, dist_or, dist_ol = self._decode(pts_all_feat)
         dist_ro = self.upsampling_r(dist_ro[:, :, None])[:, :, 0]

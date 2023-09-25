@@ -35,7 +35,7 @@ class GenericWrapper(AbstractPL):
         self.add_module("mano_l", self.mano_l)
         self.renderer = Renderer(img_res=args.img_res)
         self.object_sampler = np.load(
-            "./data/arctic_data/data/meta/downsamplers.npy", allow_pickle=True
+            "../original_packages/arctic/data/arctic_data/data/meta/downsamplers.npy", allow_pickle=True
         ).item()
 
     def set_flags(self, mode):

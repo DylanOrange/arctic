@@ -23,7 +23,7 @@ from src.utils.eval_modules import eval_fn_dict
 def evalute_results(
     layers, split, exp_key, setup, device, metrics, data_keys, task, eval_p
 ):
-    with open(f"./data/arctic_data/data/splits_json/protocol_{setup}.json", "r") as f:
+    with open(f"../original_packages/arctic/data/arctic_data/data/splits_json/protocol_{setup}.json", "r") as f:
         protocols = json.load(f)
 
     seqs_val = protocols[split]

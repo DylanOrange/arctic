@@ -1,4 +1,5 @@
 import comet_ml
+import os
 import os.path as op
 import sys
 from pprint import pformat

@@ -28,7 +28,7 @@ class ArcticDataset(Dataset):
         speedup = args.speedup
         sid, seq_name, view_idx, image_idx = imgname.split("/")[-4:]
         obj_name = seq_name.split("_")[0]
-        view_idx = int(view_idx)
+        view_idx = int(view_idx)#index of sequence
 
         seq_data = self.data[f"{sid}/{seq_name}"]
 
@@ -37,18 +37,18 @@ class ArcticDataset(Dataset):
         data_bbox = seq_data["bbox"]
         data_params = seq_data["params"]
 
-        vidx = int(image_idx.split(".")[0]) - self.ioi_offset[sid]
+        vidx = int(image_idx.split(".")[0]) - self.ioi_offset[sid]#index of image
         vidx, is_valid, right_valid, left_valid = get_valid(
             data_2d, data_cam, vidx, view_idx, imgname
         )
 
-        if view_idx == 0:
+        if view_idx == 0:#egocentric or allocentric
             intrx = data_params["K_ego"][vidx].copy()
         else:
             intrx = np.array(self.intris_mat[sid][view_idx - 1])
 
         # hands
-        joints2d_r = pad_jts2d(data_2d["joints.right"][vidx, view_idx].copy())
+        joints2d_r = pad_jts2d(data_2d["joints.right"][vidx, view_idx].copy())#pad one dimension after the 2D coordinate of joints 
         joints3d_r = data_cam["joints.right"][vidx, view_idx].copy()
 
         joints2d_l = pad_jts2d(data_2d["joints.left"][vidx, view_idx].copy())
@@ -117,9 +117,8 @@ class ArcticDataset(Dataset):
             if speedup:
                 imgname = imgname.replace("/images/", "/cropped_images/")
             imgname = imgname.replace(
-                "/arctic_data/", "/data/arctic_data/data/"
+                "./arctic_data/", "../original_packages/arctic/data/arctic_data/data/"
             ).replace("/data/data/", "/data/")
-            # imgname = imgname.replace("/arctic_data/", "/data/arctic_data/")
             cv_img, img_status = read_img(imgname, (2800, 2000, 3))
         else:
             norm_img = None
@@ -142,6 +141,7 @@ class ArcticDataset(Dataset):
             use_gt_k = True
             augm_dict["sc"] = 1.0
 
+        #data augmentation: 2d coordinates
         joints2d_r = data_utils.j2d_processing(
             joints2d_r, center, scale, augm_dict, args.img_res
         )
@@ -228,11 +228,11 @@ class ArcticDataset(Dataset):
             rot.batch_rot2aa(torch.from_numpy(R).float().view(1, 3, 3)).view(3).numpy()
         )
 
-        # multiply rotation from data augmentation
+        # multiply rotation from data augmentation, canonical->image->augmented
         obj_rot_aug = rot.rot_aa(obj_rot, augm_dict["rot"])
         targets["object.rot"] = torch.FloatTensor(obj_rot_aug).view(1, 3)
 
-        # full image camera coord
+        # full image camera coord, not change 3d coordiantes after augmentation?
         targets["mano.j3d.full.r"] = torch.FloatTensor(joints3d_r[:, :3])
         targets["mano.j3d.full.l"] = torch.FloatTensor(joints3d_l[:, :3])
         targets["object.kp3d.full.b"] = torch.FloatTensor(kp3d_b[:, :3])
@@ -261,7 +261,7 @@ class ArcticDataset(Dataset):
         meta_info["intrinsics"] = torch.FloatTensor(intrx)
         if not is_egocam:
             dist = dist * float("nan")
-        meta_info["dist"] = torch.FloatTensor(dist)
+        meta_info["dist"] = torch.FloatTensor(dist)#distortion
         meta_info["center"] = np.array(center, dtype=np.float32)
         meta_info["is_flipped"] = augm_dict["flip"]
         meta_info["rot_angle"] = np.float32(augm_dict["rot"])
@@ -285,6 +285,7 @@ class ArcticDataset(Dataset):
         self.imgnames = imgnames
 
     def _load_data(self, args, split, seq):
+        logger.info(f'load data!')
         self.args = args
         self.split = split
         self.aug_data = split.endswith("train")
@@ -302,19 +303,20 @@ class ArcticDataset(Dataset):
 
         short_split = split.replace("mini", "").replace("tiny", "").replace("small", "")
         data_p = op.join(
-            f"./data/arctic_data/data/splits/{args.setup}_{short_split}.npy"
+            f"../original_packages/arctic/data/arctic_data/data/splits/{args.setup}_{short_split}.npy"
         )
         logger.info(f"Loading {data_p}")
         data = np.load(data_p, allow_pickle=True).item()
 
+        #data only have these two dicts
         self.data = data["data_dict"]
         self.imgnames = data["imgnames"]
 
-        with open("./data/arctic_data/data/meta/misc.json", "r") as f:
+        with open("../original_packages/arctic/data/arctic_data/data/meta/misc.json", "r") as f:
             misc = json.load(f)
 
         # unpack
-        subjects = list(misc.keys())
+        subjects = list(misc.keys())#different views e.g. s01,s02...
         intris_mat = {}
         world2cam = {}
         image_sizes = {}
@@ -325,10 +327,10 @@ class ArcticDataset(Dataset):
             image_sizes[subject] = misc[subject]["image_size"]
             ioi_offset[subject] = misc[subject]["ioi_offset"]
 
-        self.world2cam = world2cam
-        self.intris_mat = intris_mat
-        self.image_sizes = image_sizes
-        self.ioi_offset = ioi_offset
+        self.world2cam = world2cam#camera extrinsics
+        self.intris_mat = intris_mat#camera intrinsics
+        self.image_sizes = image_sizes#image resolution
+        self.ioi_offset = ioi_offset#a scalar value
 
         object_tensors = ObjectTensors()
         self.kp3d_cano = object_tensors.obj_tensors["kp_bottom"]
@@ -336,6 +338,7 @@ class ArcticDataset(Dataset):
         self.egocam_k = None
 
     def __init__(self, args, split, seq=None):
+        logger.info(f'initialize arctic dataset!')
         self._load_data(args, split, seq)
         self._process_imgnames(seq, split)
         logger.info(

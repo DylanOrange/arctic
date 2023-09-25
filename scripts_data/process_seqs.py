@@ -31,7 +31,7 @@ def main():
     args = construct_args()
 
     with open(
-        f"./data/arctic_data/data/meta/misc.json",
+        f"../original_packages/arctic/data/arctic_data/data/meta/misc.json",
         "r",
     ) as f:
         misc = json.load(f)
@@ -46,7 +46,7 @@ def main():
     if args.mano_p is not None:
         mano_ps = [args.mano_p]
     else:
-        mano_ps = glob(f"./data/arctic_data/data/raw_seqs/*/*.mano.npy")
+        mano_ps = glob(f"../original_packages/arctic/data/arctic_data/data/raw_seqs/*/*.mano.npy")
 
     layers = construct_layers(dev)
     # object_tensor = ObjectTensors('', './arctic_data/data')
