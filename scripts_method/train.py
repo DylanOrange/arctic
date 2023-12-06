@@ -28,7 +28,7 @@ def main(args):
         wrapper.load_state_dict(ckpt["state_dict"])
         logger.info(f"Loaded weights from {args.load_ckpt}")
 
-    wrapper.model.arti_head.object_tensors.to(device)
+    # wrapper.model.regressor.arti_head.object_tensors.to(device)
 
     ckpt_callback = ModelCheckpoint(
         monitor="loss__val",
@@ -44,6 +44,7 @@ def main(args):
 
     model_summary_cb = ModelSummary(max_depth=3)
     callbacks = [ckpt_callback, pbar_cb, model_summary_cb]
+    
     trainer = pl.Trainer(
         gradient_clip_val=args.grad_clip,
         gradient_clip_algorithm="norm",

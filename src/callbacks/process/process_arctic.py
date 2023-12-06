@@ -5,50 +5,52 @@ import common.camera as camera
 import common.data_utils as data_utils
 import common.transforms as tf
 import src.callbacks.process.process_generic as generic
+import src.utils.interfield as inter
 
 
 def process_data(
     models, inputs, targets, meta_info, mode, args, field_max=float("inf")
 ):
     
-    #add cano coordinates input
-    batch_size = meta_info["intrinsics"].shape[0]
+    #add cano coordinates input, delete when run field SF
+    # batch_size = meta_info["intrinsics"].shape[0]
 
-    (
-        v0_r,
-        v0_l,
-        v0_o,
-        pidx,
-        v0_r_full,
-        v0_l_full,
-        v0_o_full,
-        mask,
-        cams,
-    ) = generic.prepare_templates(
-        batch_size,
-        models["mano_r"],
-        models["mano_l"],
-        models["mesh_sampler"],
-        models["arti_head"],
-        meta_info["query_names"],
-    )
+    # (
+    #     v0_r,
+    #     v0_l,
+    #     v0_o,
+    #     pidx,
+    #     v0_r_full,
+    #     v0_l_full,
+    #     v0_o_full,
+    #     mask,
+    #     cams,
+    # ) = generic.prepare_templates(
+    #     batch_size,
+    #     models["mano_r"],
+    #     models["mano_l"],
+    #     models["mesh_sampler"],
+    #     models["arti_head"],
+    #     meta_info["query_names"],
+    # )
 
-    meta_info["v0.r"] = v0_r#64,216,3
-    meta_info["v0.l"] = v0_l#64,216,3
-    meta_info["v0.o"] = v0_o#64,600,3
-    meta_info["cams0"] = cams
-    meta_info["parts_idx"] = pidx
-    meta_info["v0.r.full"] = v0_r_full#64,799,3
-    meta_info["v0.l.full"] = v0_l_full#64,799,3
-    meta_info["v0.o.full"] = v0_o_full#64,3997,3
-    meta_info["mask"] = mask
+    # meta_info["v0.r"] = v0_r#64,216,3
+    # meta_info["v0.l"] = v0_l#64,216,3
+    # meta_info["v0.o"] = v0_o#64,600,3
+    # meta_info["cams0"] = cams
+    # meta_info["parts_idx"] = pidx
+    # meta_info["v0.r.full"] = v0_r_full#64,799,3
+    # meta_info["v0.l.full"] = v0_l_full#64,799,3
+    # meta_info["v0.o.full"] = v0_o_full#64,3997,3
+    # meta_info["mask"] = mask
 
+    #to find the index of subsampled points in the full point cloud
     N_joint = 21
-    ridx = torch.argmin(torch.cdist(v0_r[:,N_joint:], v0_r_full[:,N_joint:], p=2), dim=2)
-    lidx = torch.argmin(torch.cdist(v0_l[:,N_joint:], v0_l_full[:,N_joint:], p=2), dim=2)
-    oidx = torch.argmin(torch.cdist(v0_o, v0_o_full, p=2), dim=2)
+    # ridx = torch.argmin(torch.cdist(v0_r[:,N_joint:], v0_r_full[:,N_joint:], p=2), dim=2)#64,195
+    # lidx = torch.argmin(torch.cdist(v0_l[:,N_joint:], v0_l_full[:,N_joint:], p=2), dim=2)#64,195
+    # oidx = torch.argmin(torch.cdist(v0_o, v0_o_full, p=2), dim=2)#64,600
 
-    B = ridx.shape[0]
+    # B = ridx.shape[0]
     img_res = 224
     K = meta_info["intrinsics"]
     gt_pose_r = targets["mano.pose.r"]  # MANO pose parameters
@@ -99,8 +101,8 @@ def process_data(
         global_orient=gt_pose_l[:, :3],
         transl=None,
     )
-    gt_model_joints_l = gt_out_l.joints
-    gt_vertices_l = gt_out_l.vertices
+    gt_model_joints_l = gt_out_l.joints#joints:21
+    gt_vertices_l = gt_out_l.vertices#vertics:778
     gt_root_cano_l = gt_out_l.joints[:, 0]
 
     # map MANO mesh to object canonical space, there is a translation between object cano joint coordinate and posed mano space coordinate
@@ -153,7 +155,7 @@ def process_data(
     )
 
     gt_cam_t_wp_l = camera.perspective_to_weak_perspective_torch(
-        gt_cam_t_l, avg_focal_length, img_res
+        gt_cam_t_l, avg_focal_length,    img_res
     )
 
     gt_cam_t_wp_o = camera.perspective_to_weak_perspective_torch(
@@ -171,7 +173,7 @@ def process_data(
     targets["mano.v3d.cam.l"] = gt_vertices_l
     targets["mano.j3d.cam.r"] = gt_model_joints_r
     targets["mano.j3d.cam.l"] = gt_model_joints_l
-    targets["object.kp3d.cam"] = gt_kp3d_o
+    targets["object.kp3d.cam"] = gt_kp3d_o#keypoints:32
     targets["object.bbox3d.cam"] = gt_bbox3d_o
 
     out = models["arti_head"].object_tensors.forward(
@@ -182,17 +184,38 @@ def process_data(
     )
 
     # GT vertices relative to right hand root
-    targets["object.v.cam"] = out["v"] + gt_transl[:, None, :]
-    targets["object.v_len"] = out["v_len"]
+    targets["object.v.cam"] = out["v"] + gt_transl[:, None, :]#vertics:3997
+    targets["object.v_len"] = out["v_len"]#number of vertics the object in every batch have
 
     targets["object.f"] = out["f"]
     targets["object.f_len"] = out["f_len"]
 
     targets = generic.prepare_interfield(targets, field_max)
 
-    meta_info["dist.ro"] = targets["dist.ro"][torch.arange(B).unsqueeze(1), ridx].clone()#64,195
-    meta_info["dist.lo"] = targets["dist.lo"][torch.arange(B).unsqueeze(1), lidx].clone()#64,195
-    meta_info["dist.or"] = targets["dist.or"][torch.arange(B).unsqueeze(1), oidx].clone()#64,600
-    meta_info["dist.ol"] = targets["dist.ol"][torch.arange(B).unsqueeze(1), oidx].clone()#64,600
+    dist_or, _ = inter.compute_dist_obj_to_mano(
+        targets["mano.v3d.cam.r"],
+        targets["object.kp3d.cam"],
+        None,
+        0.0,
+        field_max,
+    )
+    dist_ol, _ = inter.compute_dist_obj_to_mano(
+        targets["mano.v3d.cam.l"],
+        targets["object.kp3d.cam"],
+        None,
+        0.0,
+        field_max,
+    )
+    
+    # meta_info["dist.ro"] = targets["dist.ro"][torch.arange(B).unsqueeze(1), ridx].clone()#64,778->64,195
+    # meta_info["dist.lo"] = targets["dist.lo"][torch.arange(B).unsqueeze(1), lidx].clone()#64,778->64,195
+    # meta_info["dist.or"] = targets["dist.or"][torch.arange(B).unsqueeze(1), oidx].clone()#64,3997->64,600
+    # meta_info["dist.ol"] = targets["dist.ol"][torch.arange(B).unsqueeze(1), oidx].clone()#64,3997->64,600
+
+    #the first 21 points are joints
+    meta_info["dist.ro"] = targets["dist.ro"][:, :N_joint].clone()#64,778->64,21
+    meta_info["dist.lo"] = targets["dist.lo"][:, :N_joint].clone()#64,778->64,21
+    meta_info["dist.or"] = dist_or.clone()#64,32
+    meta_info["dist.ol"] = dist_ol.clone()#64,32
 
     return inputs, targets, meta_info

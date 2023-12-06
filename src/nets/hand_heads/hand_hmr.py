@@ -36,16 +36,16 @@ class HandHMR(nn.Module):
             )
             .reshape(1, -1)
             .repeat(batch_size, 1)
-        )
+        )#one 6d rotation representation, but the DOF is still 3
         init_shape = torch.zeros(1, 10).repeat(batch_size, 1)
 
         #initialize camera paramter using a cam_init head
         init_transl = self.cam_init(features)
 
         out = {}
-        out["pose_6d"] = init_pose
-        out["shape"] = init_shape
-        out["cam_t/wp"] = init_transl
+        out["pose_6d"] = init_pose#64,16*6
+        out["shape"] = init_shape#64,10
+        out["cam_t/wp"] = init_transl#64,3
         out = xdict(out).to(dev)
         return out
 
@@ -69,7 +69,7 @@ class HandHMR(nn.Module):
             pred_vdict["pose_6d"].reshape(-1, 6)
         ).view(batch_size, 16, 3, 3)
 
-        pred_vdict["pose"] = pred_rotmat
+        pred_vdict["pose"] = pred_rotmat#64,16,3,3
         pred_vdict["cam_t.wp.init"] = init_cam_t
         pred_vdict = pred_vdict.replace_keys("/", ".")
         return pred_vdict

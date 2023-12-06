@@ -44,6 +44,9 @@ class AbstractPL(pl.LightningModule):
         print(self.load_state_dict(sd))
 
     def training_step(self, batch, batch_idx):
+        # torch.cuda.synchronize()
+        # start_step = time.time()
+
         self.set_training_flags()
         if len(self.vis_train_batches) < self.num_vis_train:
             self.vis_train_batches.append(batch)
@@ -69,6 +72,10 @@ class AbstractPL(pl.LightningModule):
             running_loss_dict = avg_losses_cpu(self.loss_dict_vec)
             running_loss_dict = xdict(running_loss_dict).postfix("__train")
             log_dict(self.experiment, running_loss_dict, step=self.global_step)
+
+        # torch.cuda.synchronize()
+        # end_step = time.time()
+        # print('one step time is {}'.format(end_step-start_step))
         return loss_dict
 
     def on_train_epoch_end(self):

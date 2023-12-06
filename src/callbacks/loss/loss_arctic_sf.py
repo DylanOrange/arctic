@@ -2,6 +2,9 @@ import torch
 import torch.nn as nn
 from pytorch3d.transforms.rotation_conversions import axis_angle_to_matrix
 
+from src.callbacks.process.process_generic import prepare_interfield
+from src.callbacks.loss.loss_field import dist_loss
+
 from src.utils.loss_modules import (
     compute_contact_devi_loss,
     hand_kp3d_loss,
@@ -48,6 +51,9 @@ def compute_loss(pred, gt, meta_info, args):
     left_valid = gt["left_valid"]
     joints_valid_r = gt["joints_valid_r"]
     joints_valid_l = gt["joints_valid_l"]
+
+    #interaction field
+    pred = prepare_interfield(pred, max_dist=float("inf"))
 
     # reshape
     gt_pose_r = axis_angle_to_matrix(gt_pose_r.reshape(-1, 3)).reshape(-1, 16, 3, 3)

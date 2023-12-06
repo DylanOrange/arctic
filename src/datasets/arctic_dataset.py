@@ -1,5 +1,6 @@
 import json
 import os.path as op
+import time
 
 import numpy as np
 import torch
@@ -23,8 +24,12 @@ class ArcticDataset(Dataset):
         return data
 
     def getitem(self, imgname, load_rgb=True):
+        # start_getitem = time.time()
         args = self.args
         # LOADING START
+
+        # start_loading = time.time()
+
         speedup = args.speedup
         sid, seq_name, view_idx, image_idx = imgname.split("/")[-4:]
         obj_name = seq_name.split("_")[0]
@@ -89,6 +94,9 @@ class ArcticDataset(Dataset):
         bbox = data_bbox[vidx, view_idx]  # original bbox
         is_egocam = "/0/" in imgname
 
+        # end_loading = time.time()
+        # print('one loading time is {}'.format(end_loading-start_loading))
+
         # LOADING END
 
         # SPEEDUP PROCESS
@@ -119,12 +127,19 @@ class ArcticDataset(Dataset):
             imgname = imgname.replace(
                 "./arctic_data/", "../original_packages/arctic/data/arctic_data/data/"
             ).replace("/data/data/", "/data/")
+            # start_image = time.time()
+
             cv_img, img_status = read_img(imgname, (2800, 2000, 3))
+
+            # end_image = time.time()
+            # print('one image is {}'.format(end_image-start_image))
         else:
             norm_img = None
 
         center = [bbox[0], bbox[1]]
         scale = bbox[2]
+
+        # start_aug = time.time()
 
         # augment parameters
         augm_dict = data_utils.augm_params(
@@ -175,7 +190,10 @@ class ArcticDataset(Dataset):
             )
             img = torch.from_numpy(img).float()
             norm_img = self.normalize_img(img)
+        # end_aug = time.time()
+        # print('one augmentation is {}'.format(end_aug-start_aug))
 
+        # start_export = time.time()
         # exporting starts
         inputs = {}
         targets = {}
@@ -273,6 +291,12 @@ class ArcticDataset(Dataset):
         targets["right_valid"] = float(right_valid) * float(is_valid)
         targets["joints_valid_r"] = np.ones(21) * targets["right_valid"]
         targets["joints_valid_l"] = np.ones(21) * targets["left_valid"]
+
+        # torch.cuda.synchronize()
+        # end_export = time.time()
+        # print('one export time is {}'.format(end_export-start_export))
+        # end_getitem = time.time()
+        # print('one get item time is {}'.format(end_getitem-start_getitem))
 
         return inputs, targets, meta_info
 

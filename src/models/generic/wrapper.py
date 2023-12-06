@@ -1,5 +1,7 @@
 import numpy as np
 import torch
+from torch.autograd import profiler
+import time
 
 import common.data_utils as data_utils
 import common.ld_utils as ld_utils
@@ -99,6 +101,9 @@ class GenericWrapper(AbstractPL):
         return mydict
 
     def forward(self, inputs, targets, meta_info, mode):
+        # torch.cuda.synchronize()
+        # start_forward = time.time()
+    
         models = {
             "mano_r": self.mano_r,
             "mano_l": self.mano_l,
@@ -111,17 +116,34 @@ class GenericWrapper(AbstractPL):
         inputs = xdict(inputs)
         targets = xdict(targets)
         meta_info = xdict(meta_info)
+
+        # torch.cuda.synchronize()
+        # start_processing = time.time()
+
         with torch.no_grad():
             inputs, targets, meta_info = self.process_fn(
                 models, inputs, targets, meta_info, mode, self.args
             )
+
+        # torch.cuda.synchronize()
+        # end_processing = time.time()
+        # print('one data processing time is {}'.format(end_processing-start_processing))
 
         move_keys = ["object.v_len"]
         for key in move_keys:
             meta_info[key] = targets[key]
         meta_info["mano.faces.r"] = self.mano_r.faces
         meta_info["mano.faces.l"] = self.mano_l.faces
+
+        # torch.cuda.synchronize()
+        # start_model = time.time()
+
         pred = self.model(inputs, meta_info)
+
+        # torch.cuda.synchronize()
+        # end_model = time.time()
+        # print('one model time is {}'.format(end_model-start_model))
+
         loss_dict = self.loss_fn(
             pred=pred, gt=targets, meta_info=meta_info, args=self.args
         )
@@ -129,7 +151,6 @@ class GenericWrapper(AbstractPL):
         loss_dict = mul_loss_dict(loss_dict)
         loss_dict["loss"] = sum(loss_dict[k] for k in loss_dict)
 
-        # conversion for vis and eval
         keys = list(pred.keys())
         for key in keys:
             # denormalize 2d keypoints
@@ -147,6 +168,10 @@ class GenericWrapper(AbstractPL):
 
                 pred[denorm_key] = val_denorm_pred
                 targets[denorm_key] = val_denorm_gt
+
+        # torch.cuda.synchronize()
+        # end_forward = time.time()
+        # print('one forward time is {}'.format(end_forward-start_forward))
 
         if mode == "train":
             return {"out_dict": (inputs, targets, meta_info, pred), "loss": loss_dict}

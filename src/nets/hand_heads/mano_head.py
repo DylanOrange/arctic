@@ -27,7 +27,7 @@ class MANOHead(nn.Module):
         """
 
         rotmat_original = rotmat.clone()
-        rotmat = rot.matrix_to_axis_angle(rotmat.reshape(-1, 3, 3)).reshape(-1, 48)
+        rotmat = rot.matrix_to_axis_angle(rotmat.reshape(-1, 3, 3)).reshape(-1, 48)#64,16*3
 
         mano_output = self.mano(
             betas=shape,
@@ -44,8 +44,8 @@ class MANOHead(nn.Module):
         joints3d_cam = mano_output.joints + cam_t[:, None, :]
         v3d_cam = mano_output.vertices + cam_t[:, None, :]
 
-        joints2d = tf.project2d_batch(K, joints3d_cam)
-        joints2d = data_utils.normalize_kp2d(joints2d, self.img_res)
+        joints2d_unnorm = tf.project2d_batch(K, joints3d_cam)
+        joints2d = data_utils.normalize_kp2d(joints2d_unnorm, self.img_res)#normalize to -1 to +1
 
         output["cam_t.wp"] = cam
         output["cam_t"] = cam_t
@@ -53,6 +53,7 @@ class MANOHead(nn.Module):
         output["vertices"] = mano_output.vertices
         output["j3d.cam"] = joints3d_cam
         output["v3d.cam"] = v3d_cam
+        output["j2d.cam"] = joints2d_unnorm
         output["j2d.norm"] = joints2d
         output["beta"] = shape
         output["pose"] = rotmat_original

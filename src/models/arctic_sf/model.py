@@ -5,127 +5,121 @@ import common.ld_utils as ld_utils
 from common.xdict import xdict
 from src.nets.backbone.utils import get_backbone_info
 from src.nets.hand_heads.hand_hmr import HandHMR
-from src.nets.hand_heads.mano_head import MANOHead
-from src.nets.obj_heads.obj_head import ArtiHead
 from src.nets.obj_heads.obj_hmr import ObjectHMR
 from src.nets.pointnet import PointNetfeat
-from src.nets.transformer import Transformer
+from src.nets.regressor import Regressor
+from src.nets.refinement import Refinement
+from src.nets.enhancement import Enhancement
+from src.nets.backbone.residual import Residual
+
 
 class ArcticSF(nn.Module):
     def __init__(self, backbone, focal_length, img_res, args):
         super(ArcticSF, self).__init__()
         self.args = args
         if backbone == "resnet50":
-            from src.nets.backbone.resnet import resnet50 as resnet
+            from src.nets.backbone.resnet import resnet50 as img_backbone
         elif backbone == "resnet18":
-            from src.nets.backbone.resnet import resnet18 as resnet
+            from src.nets.backbone.resnet import resnet18 as img_backbone
+        elif backbone == "ViT":
+            from src.nets.backbone.ViT import vit_base_patch16_224 as img_backbone
+            self.spatial_h = 14 
         else:
             assert False
-        self.backbone = resnet(pretrained=True)
+        self.backbone = img_backbone(pretrained=True)
         feat_dim = get_backbone_info(backbone)["n_output_channels"]
 
-        pt_shallow_dim = 512
-        pt_mid_dim = 512
-        pt_out_dim = 512
-        num_heads = 4
-        hidden_dim = 1024
+        hand_specs = {"pose_6d": 6 * 16, "cam_t/wp": 3, "shape": 10}
+        obj_specs = {"rot": 3, "cam_t/wp": 3, "radian": 1}
 
-        self.transformer = Transformer(image_feature_dim=feat_dim, point_cloud_feature_dim=pt_out_dim+pt_mid_dim, 
-                                       num_heads=num_heads, hidden_dim=hidden_dim)
+        pt_shallow_dim = 64
+        pt_mid_dim = 64
+        pt_out_dim = 64
         
-        self.point_backbone_h = PointNetfeat(
-            input_dim=1,
-            shallow_dim=pt_shallow_dim,
-            mid_dim=pt_mid_dim,
-            out_dim=pt_out_dim,
-        )
+        self.hand_joint_num = 21
+        self.object_joint_num = 32
 
-        self.point_backbone_o = PointNetfeat(
-            input_dim=2,
-            shallow_dim=pt_shallow_dim,
-            mid_dim=pt_mid_dim,
-            out_dim=pt_out_dim,
-        )
+        # self.point_backbone_h = PointNetfeat(
+        #     input_dim=1,
+        #     shallow_dim=pt_shallow_dim,
+        #     mid_dim=pt_mid_dim,
+        #     out_dim=pt_out_dim,
+        # )
+
+        # self.point_backbone_o = PointNetfeat(
+        #     input_dim=2,
+        #     shallow_dim=pt_shallow_dim,
+        #     mid_dim=pt_mid_dim,
+        #     out_dim=pt_out_dim,
+        # )
 
         self.head_r = HandHMR(feat_dim, is_rhand=True, n_iter=3)
         self.head_l = HandHMR(feat_dim, is_rhand=False, n_iter=3)
-
         self.head_o = ObjectHMR(feat_dim, n_iter=3)
 
-        self.mano_r = MANOHead(
-            is_rhand=True, focal_length=focal_length, img_res=img_res
-        )
+        # self.img_encoder = Residual(feat_dim, 256)
+        self.regressor = Regressor(focal_length=focal_length, img_res=img_res)
+        # self.refinement1 = Refinement(feat_dim, self.hand_joint_num, self.object_joint_num, hand_specs, obj_specs)
+        # self.refinement2 = Refinement(256, self.hand_joint_num, self.object_joint_num, hand_specs, obj_specs)
+        # self.enhancement = Enhancement(self.hand_joint_num, self.object_joint_num)
+        # self.enhance_layer = Residual(64 * (self.hand_joint_num * 2 + self.object_joint_num)+256, 256)
 
-        self.mano_l = MANOHead(
-            is_rhand=False, focal_length=focal_length, img_res=img_res
-        )
-
-        self.arti_head = ArtiHead(focal_length=focal_length, img_res=img_res)
         self.mode = "train"
         self.img_res = img_res
         self.focal_length = focal_length
-
+    
     def forward(self, inputs, meta_info):
-        images = inputs["img"]
-        query_names = meta_info["query_names"]
-        K = meta_info["intrinsics"]
+        images = inputs["img"]#64,3,224,224
 
-        #fetch points coordinate
-        # points_r = meta_info["v0.r.full"].permute(0, 2, 1)[:, :, 21:]
-        # points_l = meta_info["v0.l.full"].permute(0, 2, 1)[:, :, 21:]
-        # points_or = meta_info["v0.o.full"].permute(0, 2, 1)
-        # points_ol = meta_info["v0.o.full"].permute(0, 2, 1)
+        # field_r = meta_info["dist.ro"][:,None,:]#64,1,21
+        # field_l = meta_info["dist.lo"][:,None,:]#64,1,21
+        # field_o = torch.stack([meta_info["dist.or"], meta_info["dist.ol"]], dim=1)#64,2,32
 
-        field_r = meta_info["dist.ro"][:,None,:]#64,1,195
-        field_l = meta_info["dist.lo"][:,None,:]#64,1,195
-        field_o = torch.stack([meta_info["dist.or"], meta_info["dist.ol"]], dim=1)#64,2,600
-
-        features_r= self.point_backbone_h(field_r)[0]#64,1024,195
-        features_l= self.point_backbone_h(field_l)[0]#64,1024,195
-        features_o= self.point_backbone_o(field_o)[0]#64,1024,600
+        # field_feat_r= self.point_backbone_h(field_r)[0]#64,128,21
+        # field_feat_l= self.point_backbone_h(field_l)[0]#64,128,21
+        # field_feat_o= self.point_backbone_o(field_o)[0]#64,128,32
 
         #backbone
-        features = self.backbone(images)#64,2048,7,7
-        feat_vec = features.view(features.shape[0], features.shape[1], -1).sum(dim=2)
+        features = self.backbone(images)#64,2048,7,7 for resnet, 64,197,768 for ViT
 
-        #fuse image and pointcloud features
-        features_r = self.transformer(features, features_r)
-        features_l = self.transformer(features, features_l)
-        features_o = self.transformer(features, features_o)
+        #recover the spatial dimension
+        # features = features[:,1:,:].view(-1,self.spatial_h,self.spatial_h,features.shape[-1])#64,14,14,768
+        # features = features.permute(0,3,1,2)#64,768,14,14
 
-        hmr_output_r = self.head_r(features_r)#64,2048,7,7 -> 64,2048
-        hmr_output_l = self.head_l(features_l)
-        hmr_output_o = self.head_o(features_o)
+        feat_vec = features.view(features.shape[0], features.shape[1], -1).sum(dim=2)#64,768
 
-        # weak perspective
-        root_r = hmr_output_r["cam_t.wp"]
-        root_l = hmr_output_l["cam_t.wp"]
-        root_o = hmr_output_o["cam_t.wp"]
+        hmr_output_r = self.head_r(features)#64,2048,7,7 -> 64,2048
+        hmr_output_l = self.head_l(features)
+        hmr_output_o = self.head_o(features)
+
+        #initial regressor
+        mano_output_r, mano_output_l, arti_output = self.regressor(hmr_output_r, hmr_output_l, hmr_output_o, meta_info)
+
+        # second stage, refinement
+        # features = self.img_encoder(features)
+
+        # refine_mano_output_r, refine_mano_output_l, refine_mano_output_o, img_feat_r, img_feat_l, img_feat_o, img_feat_fusion\
+        #       = self.refinement1(features, field_feat_r, field_feat_l, field_feat_o, \
+        #                         mano_output_r, mano_output_l, arti_output, \
+        #                             hmr_output_r, hmr_output_l, hmr_output_o)  
+        # #second stage, regressor
+        # mano_output_r, mano_output_l, arti_output = self.regressor(refine_mano_output_r, \
+        #                                                            refine_mano_output_l, refine_mano_output_o, meta_info)
         
-        #mano head
-        mano_output_r = self.mano_r(
-            rotmat=hmr_output_r["pose"],
-            shape=hmr_output_r["shape"],
-            K=K,
-            cam=root_r,
-        )
+        # #enhancement
+        # # img_feat = self.enhancement(mano_output_r, mano_output_l, arti_output, img_feat_r, img_feat_l, img_feat_o)
+        # # img_feat = torch.cat((img_feat_fusion, img_feat), dim=1)
 
-        mano_output_l = self.mano_l(
-            rotmat=hmr_output_l["pose"],
-            shape=hmr_output_l["shape"],
-            K=K,
-            cam=root_l,
-        )
+        # #third stage, refinement
+        # refine_mano_output_r, refine_mano_output_l, refine_mano_output_o, img_feat_r, img_feat_l, img_feat_o, img_feat_fusion\
+        #       = self.refinement2(img_feat_fusion, field_feat_r, field_feat_l, field_feat_o, \
+        #                         mano_output_r, mano_output_l, arti_output, \
+        #                             hmr_output_r, hmr_output_l, hmr_output_o)
+        # #third stage, regressor
+        # mano_output_r, mano_output_l, arti_output = self.regressor(refine_mano_output_r, \
+        #                                                            refine_mano_output_l, refine_mano_output_o, meta_info)
 
-        # fwd mesh when in val or vis
-        arti_output = self.arti_head(
-            rot=hmr_output_o["rot"],
-            angle=hmr_output_o["radian"],
-            query_names=query_names,
-            cam=root_o,
-            K=K,
-        )
-
+        #add init camera parameters
         root_r_init = hmr_output_r["cam_t.wp.init"]
         root_l_init = hmr_output_l["cam_t.wp.init"]
         root_o_init = hmr_output_o["cam_t.wp.init"]

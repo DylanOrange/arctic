@@ -7,7 +7,7 @@ mse_loss = nn.MSELoss(reduction="none")
 ce_loss = nn.CrossEntropyLoss(reduction="none")
 
 
-def dist_loss(loss_dict, pred, gt, meta_info):
+def dist_loss(loss_dict, pred, gt, meta_info, weight=100.0):
     is_valid = gt["is_valid"]
     mask_o = meta_info["mask"]
 
@@ -38,7 +38,7 @@ def dist_loss(loss_dict, pred, gt, meta_info):
     loss_ro[bnd_idx_ro] *= 0.1
     loss_lo[bnd_idx_lo] *= 0.1
 
-    weight = 100.0
+    # weight = 100.0
     loss_dict[f"loss/dist/ro"] = (loss_ro.mean(), weight)
     loss_dict[f"loss/dist/lo"] = (loss_lo.mean(), weight)
     loss_dict[f"loss/dist/or"] = (loss_or.mean(), weight)

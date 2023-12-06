@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 
 import common.camera as camera
@@ -11,6 +12,8 @@ class ArtiHead(nn.Module):
     def __init__(self, focal_length, img_res):
         super().__init__()
         self.object_tensors = ObjectTensors()
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.object_tensors.to(device)
         self.focal_length = focal_length
         self.img_res = img_res
 
@@ -43,10 +46,10 @@ class ArtiHead(nn.Module):
         kp3d_cam = kp3d + cam_t[:, None, :]
 
         # 2d keypoints
-        kp2d = tf.project2d_batch(K, kp3d_cam)
+        kp2d_unnorm = tf.project2d_batch(K, kp3d_cam)
         bbox2d = tf.project2d_batch(K, bbox3d_cam)
 
-        kp2d = data_utils.normalize_kp2d(kp2d, self.img_res)
+        kp2d = data_utils.normalize_kp2d(kp2d_unnorm, self.img_res)
         bbox2d = data_utils.normalize_kp2d(bbox2d, self.img_res)
         num_kps = kp2d.shape[1] // 2
 
@@ -62,6 +65,7 @@ class ArtiHead(nn.Module):
         output["bbox3d"] = bbox3d
         output["bbox3d.cam"] = bbox3d_cam
         output["kp3d.cam"] = kp3d_cam
+        output["kp2d.cam"] = kp2d_unnorm
         output["kp2d.norm"] = kp2d
         output["kp2d.norm.t"] = kp2d[:, :num_kps]
         output["kp2d.norm.b"] = kp2d[:, num_kps:]
