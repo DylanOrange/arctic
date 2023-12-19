@@ -43,13 +43,15 @@ def prepare_templates(
     arti_head,
     query_names,
 ):
+    #joints(21)+sub_vertics(195), joints(21)+vertics(778)
     v0_r, v0_r_full = prepare_mano_template(
         batch_size, mano_r, mesh_sampler, is_right=True
     )
     v0_l, v0_l_full = prepare_mano_template(
         batch_size, mano_l, mesh_sampler, is_right=False
     )
-    (v0_o, pidx, v0_full, mask) = prepare_object_template(
+    #sub_vertics(600) + vertics(4000)
+    (v0_o, pidx, v0_full, mask, v0_o_kp) = prepare_object_template(
         batch_size,
         arti_head.object_tensors,
         query_names,
@@ -64,6 +66,7 @@ def prepare_templates(
         v0_r,
         v0_l,
         v0_o,
+        v0_o_kp,
         pidx,
         v0_r_full,
         v0_l_full,
@@ -85,6 +88,7 @@ def prepare_object_template(batch_size, object_tensors, query_names):
     ref_vertices = out["v_sub"]
     parts_idx = out["parts_ids"]
 
+
     mask = out["mask"]
 
     ref_mean = ref_vertices.mean(dim=1)[:, None, :]
@@ -93,7 +97,11 @@ def prepare_object_template(batch_size, object_tensors, query_names):
     v_template = out["v"]
     #sub and ori in the same coordiante system
     v_template -= ref_mean
-    return (ref_vertices, parts_idx, v_template, mask)
+
+    ref_kp3d = out["kp3d"]
+    ref_kp3d -= ref_mean
+
+    return (ref_vertices, parts_idx, v_template, mask, ref_kp3d)
 
 
 def prepare_interfield(targets, max_dist):
@@ -137,4 +145,60 @@ def prepare_interfield(targets, max_dist):
     targets["idx.lo"] = dist_lo_idx
     targets["idx.or"] = dist_or_idx
     targets["idx.ol"] = dist_ol_idx
+    return targets
+
+def prepare_kp_interfield(targets, max_dist, alterkey = False):
+    dist_min = 0.0
+    dist_max = max_dist
+    dist_ro, dist_ro_idx = inter.compute_dist_mano_to_obj(
+        targets["mano.j3d.cam.r"],
+        targets["object.kp3d.cam"],
+        None,
+        0.0,
+        dist_max,
+    )
+    dist_lo, dist_lo_idx = inter.compute_dist_mano_to_obj(
+        targets["mano.j3d.cam.l"],
+        targets["object.kp3d.cam"],
+        None,
+        0.0,
+        dist_max,
+    )
+    dist_or, dist_or_idx = inter.compute_dist_obj_to_mano(
+        targets["mano.j3d.cam.r"],
+        targets["object.kp3d.cam"],
+        None,
+        0.0,
+        dist_max,
+    )
+    dist_ol, dist_ol_idx = inter.compute_dist_obj_to_mano(
+        targets["mano.j3d.cam.l"],
+        targets["object.kp3d.cam"],
+        None,
+        0.0,
+        dist_max,
+    )
+
+    if alterkey:
+        targets["dist.ro.kp.computed"] = dist_ro
+        targets["dist.lo.kp.computed"] = dist_lo
+        targets["dist.or.kp.computed"] = dist_or
+        targets["dist.ol.kp.computed"] = dist_ol
+
+        targets["idx.ro.kp.computed"] = dist_ro_idx
+        targets["idx.lo.kp.computed"] = dist_lo_idx
+        targets["idx.or.kp.computed"] = dist_or_idx
+        targets["idx.ol.kp.computed"] = dist_ol_idx
+
+    else:
+        targets["dist.ro.kp"] = dist_ro
+        targets["dist.lo.kp"] = dist_lo
+        targets["dist.or.kp"] = dist_or
+        targets["dist.ol.kp"] = dist_ol
+
+        targets["idx.ro.kp"] = dist_ro_idx
+        targets["idx.lo.kp"] = dist_lo_idx
+        targets["idx.or.kp"] = dist_or_idx
+        targets["idx.ol.kp"] = dist_ol_idx
+
     return targets

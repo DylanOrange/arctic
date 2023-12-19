@@ -1,5 +1,6 @@
 from src.callbacks.loss.loss_field import compute_loss
-from src.callbacks.process.process_field import process_data
+# from src.callbacks.process.process_field import process_data
+from src.callbacks.process.process_arctic import process_data
 from src.callbacks.vis.visualize_field import visualize_all
 from src.models.field_sf.model import FieldSF
 from src.models.generic.wrapper import GenericWrapper

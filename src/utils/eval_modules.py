@@ -31,7 +31,6 @@ def compute_avg_err(gt_dist, pred_dist, is_valid):
     assert len(diff_list) == len(gt_dist)
     return diff_list
 
-
 def eval_field_errors(_pred, _targets, _meta_info):
     pred = copy.deepcopy(_pred).to("cpu")
     targets = copy.deepcopy(_targets).to("cpu")
@@ -47,6 +46,7 @@ def eval_field_errors(_pred, _targets, _meta_info):
     pred.overwrite("dist.ol", unpad_vtensor(pred["dist.ol"], meta_info["object.v_len"]))
 
     keys = ["dist.ro", "dist.lo", "dist.or", "dist.ol"]
+    
     is_valid = _targets["is_valid"].bool().tolist()
 
     # validty of hand is not in use as if hand is out of frame  model should predict longer distance
@@ -67,13 +67,94 @@ def eval_field_errors(_pred, _targets, _meta_info):
 
     metric_dict["avg/ho"] = avg_ho_all
     metric_dict["avg/oh"] = avg_oh_all
+
     metric_dict.pop("avg/ro", None)
     metric_dict.pop("avg/lo", None)
     metric_dict.pop("avg/or", None)
     metric_dict.pop("avg/ol", None)
+    
     metric_dict = metric_dict.mul(1000.0).to_np()
     return metric_dict
 
+def eval_field_kp_errors(_pred, _targets, _meta_info):
+    pred = copy.deepcopy(_pred).to("cpu")
+    targets = copy.deepcopy(_targets).to("cpu")
+    # meta_info = copy.deepcopy(_meta_info).to("cpu")
+
+    # targets.overwrite(
+    #     "dist.or", unpad_vtensor(targets["dist.or"], meta_info["object.v_len"])
+    # )
+    # targets.overwrite(
+    #     "dist.ol", unpad_vtensor(targets["dist.ol"], meta_info["object.v_len"])
+    # )
+    # pred.overwrite("dist.or", unpad_vtensor(pred["dist.or"], meta_info["object.v_len"]))
+    # pred.overwrite("dist.ol", unpad_vtensor(pred["dist.ol"], meta_info["object.v_len"]))
+
+    keys = ["dist.ro.kp", "dist.lo.kp", "dist.or.kp", "dist.ol.kp"]
+    
+    is_valid = _targets["is_valid"].bool().tolist()
+
+    # validty of hand is not in use as if hand is out of frame  model should predict longer distance
+    metric_dict = xdict(
+        {
+            key.replace("dist.", "avg/"): compute_avg_err(
+                targets[key], pred[key], is_valid
+            )
+            for key in keys
+        }
+    )
+
+    avg_ho_all = torch.stack((metric_dict["avg/ro.kp"], metric_dict["avg/lo.kp"]), dim=1)
+    avg_oh_all = torch.stack((metric_dict["avg/or.kp"], metric_dict["avg/ol.kp"]), dim=1)
+
+    avg_ho_all = torch_utils.nanmean(avg_ho_all, dim=1)
+    avg_oh_all = torch_utils.nanmean(avg_oh_all, dim=1)
+
+    metric_dict["avg/ho"] = avg_ho_all
+    metric_dict["avg/oh"] = avg_oh_all
+
+    metric_dict.pop("avg/ro.kp", None)
+    metric_dict.pop("avg/lo.kp", None)
+    metric_dict.pop("avg/or.kp", None)
+    metric_dict.pop("avg/ol.kp", None)
+    
+    metric_dict = metric_dict.mul(1000.0).to_np()
+    return metric_dict
+
+def eval_field_computed_errors(_pred, _targets, _meta_info):
+    pred = copy.deepcopy(_pred).to("cpu")
+    targets = copy.deepcopy(_targets).to("cpu")
+
+    keys = ["dist.ro.kp.computed", "dist.lo.kp.computed", "dist.or.kp.computed", "dist.ol.kp.computed"]
+    
+    is_valid = _targets["is_valid"].bool().tolist()
+
+    # validty of hand is not in use as if hand is out of frame  model should predict longer distance
+    metric_dict = xdict(
+        {
+            key.replace("dist.", "avg/"): compute_avg_err(
+                targets[key.replace("kp.computed", "kp")], pred[key], is_valid
+            )
+            for key in keys
+        }
+    )
+
+    avg_ho_all_computed = torch.stack((metric_dict["avg/ro.kp.computed"], metric_dict["avg/lo.kp.computed"]), dim=1)
+    avg_oh_all_computed = torch.stack((metric_dict["avg/or.kp.computed"], metric_dict["avg/ol.kp.computed"]), dim=1)
+
+    avg_ho_all_computed = torch_utils.nanmean(avg_ho_all_computed, dim=1)
+    avg_oh_all_computed = torch_utils.nanmean(avg_oh_all_computed, dim=1)
+
+    metric_dict["avg/ho/computed"] = avg_ho_all_computed
+    metric_dict["avg/oh/computed"] = avg_oh_all_computed
+
+    metric_dict.pop("avg/ro.kp.computed", None)
+    metric_dict.pop("avg/lo.kp.computed", None)
+    metric_dict.pop("avg/or.kp.computed", None)
+    metric_dict.pop("avg/ol.kp.computed", None)
+
+    metric_dict = metric_dict.mul(1000.0).to_np()
+    return metric_dict
 
 def eval_degree(pred, targets, meta_info):
     is_valid = targets["is_valid"]
@@ -457,6 +538,8 @@ eval_fn_dict = {
     "mrrpe": eval_mrrpe,
     "success_rate": eval_v2v_success,
     "avg_err_field": eval_field_errors,
+    "avg_err_kp_field": eval_field_kp_errors,
+    "avg_err_field_computed":eval_field_computed_errors,
     "cdev": eval_contact_deviation,
     "mdev": eval_motion_deviation,
     "acc_err_pose": eval_acc_pose,

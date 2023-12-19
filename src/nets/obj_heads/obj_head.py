@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 
 import common.camera as camera
@@ -10,7 +11,9 @@ from common.xdict import xdict
 class ArtiHead(nn.Module):
     def __init__(self, focal_length, img_res):
         super().__init__()
-        self.object_tensors = ObjectTensors()
+        self.object_tensors = ObjectTensors()       
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.object_tensors.to(device)
         self.focal_length = focal_length
         self.img_res = img_res
 

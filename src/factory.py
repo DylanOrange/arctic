@@ -14,6 +14,8 @@ def fetch_dataset_eval(args, seq=None):
         DATASET = ArcticDatasetEval
     elif args.method in ["field_sf"]:
         DATASET = ArcticDatasetEval
+    elif args.method in ["InterHand"]:
+        DATASET = ArcticDatasetEval
     elif args.method in ["arctic_lstm", "field_lstm"]:
         DATASET = TempoInferenceDatasetEval
     else:
@@ -32,6 +34,11 @@ def fetch_dataset_devel(args, is_train, seq=None):
         else:
             DATASET = ArcticDataset
     elif args.method in ["field_sf"]:
+        if is_train:
+            DATASET = ArcticDataset
+        else:
+            DATASET = ArcticDataset
+    elif args.method in ["InterHand"]:
         if is_train:
             DATASET = ArcticDataset
         else:
@@ -137,6 +144,8 @@ def fetch_model(args):
         from src.models.field_sf.wrapper import FieldSFWrapper as Wrapper
     elif args.method in ["field_lstm"]:
         from src.models.field_lstm.wrapper import FieldLSTMWrapper as Wrapper
+    elif args.method in ["InterHand"]:
+        from src.models.interhand.wrapper import InterHandWrapper as Wrapper
     else:
         assert False, f"Invalid method ({args.method})"
     model = Wrapper(args)

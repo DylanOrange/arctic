@@ -28,8 +28,6 @@ def main(args):
         wrapper.load_state_dict(ckpt["state_dict"])
         logger.info(f"Loaded weights from {args.load_ckpt}")
 
-    wrapper.model.arti_head.object_tensors.to(device)
-
     ckpt_callback = ModelCheckpoint(
         monitor="loss__val",
         verbose=True,

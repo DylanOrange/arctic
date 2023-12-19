@@ -26,6 +26,7 @@ class Mesh(trimesh.Trimesh):
         fc=None,
         process=False,
         visual=None,
+        vertex_ids=None,
         **kwargs
     ):
         if filename is not None:
@@ -44,7 +45,7 @@ class Mesh(trimesh.Trimesh):
         assert self.f is self.faces
 
         if vc is not None:
-            self.set_vc(vc)
+            self.set_vc(vc, vertex_ids)
             self.vc = self.visual.vertex_colors
             assert self.vc is self.visual.vertex_colors
         if fc is not None:

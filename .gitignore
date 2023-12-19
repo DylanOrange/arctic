@@ -8,3 +8,6 @@ __pycache__
 /scripts_data
 /bash
 *.sbatch
+/.cometml-runs
+*.out
+/hamer

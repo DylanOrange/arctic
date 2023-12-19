@@ -35,7 +35,7 @@ def add_generic_args(parser):
     parser.add_argument(
         "--valsplit",
         type=str,
-        default='minival',
+        default='tinyval',
         choices=[None, "val", "smallval", "tinyval", "minival"],
         help="Amount to subsample validation set.",
     )

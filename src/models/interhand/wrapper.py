@@ -1,18 +1,17 @@
-from src.callbacks.loss.loss_arctic_sf import compute_loss
+from src.callbacks.loss.loss_interhand import compute_loss
 from src.callbacks.process.process_arctic import process_data
-from src.callbacks.vis.visualize_arctic import visualize_all
-from src.models.arctic_sf.model import ArcticSF
+import src.callbacks.vis.visualize_arctic as visualize_arctic
+import src.callbacks.vis.visualize_field as visualize_field
+from src.models.interhand.model import InterHand
 from src.models.generic.wrapper import GenericWrapper
 
 
-class ArcticSFWrapper(GenericWrapper):
+class InterHandWrapper(GenericWrapper):
     def __init__(self, args):
         super().__init__(args)
-        self.model = ArcticSF(
+        self.model = InterHand(
             backbone="ViT",
-            focal_length=args.focal_length,
-            img_res=args.img_res,
-            args=args,
+            args=args
         )
         self.process_fn = process_data
         self.loss_fn = compute_loss
@@ -22,9 +21,11 @@ class ArcticSFWrapper(GenericWrapper):
             "mpjpe.ra",
             "aae",
             "success_rate",
+            "avg_err_kp_field",
+            "avg_err_field_computed",
         ]
 
-        self.vis_fns = [visualize_all]
+        self.vis_fns = [visualize_arctic.visualize_all, visualize_field.visualize_all]
 
         self.num_vis_train = 1
         self.num_vis_val = 1

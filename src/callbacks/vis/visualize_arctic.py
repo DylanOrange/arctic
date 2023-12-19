@@ -315,7 +315,7 @@ def visualize_all(vis_dict, max_examples, renderer, postfix, no_tqdm):
         for key in vis_dict["meta_info.imgname"]
     ]
     images = denormalize_images(vis_dict["inputs.img"])
-    vis_dict.pop("inputs.img", None)
+    # vis_dict.pop("inputs.img", None)
     vis_dict["vis.images"] = images
     vis_dict["vis.image_ids"] = image_ids
 
