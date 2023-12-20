@@ -250,7 +250,6 @@ class ArcticDataset(Dataset):
         obj_rot_aug = rot.rot_aa(obj_rot, augm_dict["rot"])
         targets["object.rot"] = torch.FloatTensor(obj_rot_aug).view(1, 3)
 
-        # full image camera coord, not change 3d coordiantes after augmentation?
         targets["mano.j3d.full.r"] = torch.FloatTensor(joints3d_r[:, :3])
         targets["mano.j3d.full.l"] = torch.FloatTensor(joints3d_l[:, :3])
         targets["object.kp3d.full.b"] = torch.FloatTensor(kp3d_b[:, :3])

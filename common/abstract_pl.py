@@ -56,9 +56,9 @@ class AbstractPL(pl.LightningModule):
         loss = out["loss"]
 
         loss = {k: loss[k].mean().view(-1) for k in loss}
-        total_loss = sum(loss[k] for k in loss)
+        total_loss = sum(loss[k] for k in loss)#sum here again
 
-        loss_dict = {"total_loss": total_loss, "loss": total_loss}
+        loss_dict = {"total_loss": total_loss, "loss": total_loss}#total loss is double of the sum of loss
         loss_dict.update(loss)
 
         for k, v in loss_dict.items():

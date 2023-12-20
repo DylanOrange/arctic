@@ -11,8 +11,8 @@ def construct_args():
     parser.add_argument(
         "--method",
         type=str,
-        default='field_sf',
-        choices=[None, "arctic_sf", "arctic_lstm", "field_sf", "field_lstm"],
+        default='InterHand',
+        choices=[None, "arctic_sf", "arctic_lstm", "field_sf", "field_lstm", "InterHand"],
     )
     parser.add_argument("--exp_key", type=str, default=None)
     parser.add_argument("--extraction_mode", type=str, default=None)
@@ -30,6 +30,8 @@ def construct_args():
         import src.parsers.configs.field_sf as config
     elif args.method in ["field_lstm"]:
         import src.parsers.configs.field_lstm as config
+    elif args.method in ["InterHand"]:
+        import src.parsers.configs.interhand as config
     else:
         assert False
 

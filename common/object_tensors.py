@@ -250,7 +250,7 @@ def construct_obj_tensors(object_names):
         parts_sub_list.append(obj.parts_sub + 1)
         diameter_list.append(obj.diameter)
 
-    v_list, v_len_list = pad_tensor_list(v_list)#v_list: padding all object vertex coordinate into one large tensor, v_len_list: number of each object's vertex
+    v_list, v_len_list = pad_tensor_list(v_list)#v_list: padding all object vertex coordinate into one large tensor, padding 0, v_len_list: number of each object's vertex
     p_list, p_len_list = pad_tensor_list(parts_list)
     ps_list = torch.stack(parts_sub_list, dim=0)
     assert (p_len_list - v_len_list).sum() == 0

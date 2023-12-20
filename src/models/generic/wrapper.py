@@ -107,7 +107,7 @@ class GenericWrapper(AbstractPL):
         models = {
             "mano_r": self.mano_r,
             "mano_l": self.mano_l,
-            "arti_head": self.model.arti_head,
+            "arti_head": self.model.arctic_model.regressor.arti_head,
             "mesh_sampler": MANODecimator(),
             "object_sampler": self.object_sampler,
         }
@@ -149,7 +149,7 @@ class GenericWrapper(AbstractPL):
         )
         loss_dict = {k: (loss_dict[k][0].mean(), loss_dict[k][1]) for k in loss_dict}
         loss_dict = mul_loss_dict(loss_dict)
-        loss_dict["loss"] = sum(loss_dict[k] for k in loss_dict)
+        loss_dict["loss"] = sum(loss_dict[k] for k in loss_dict)#already sum here
 
         keys = list(pred.keys())
         for key in keys:

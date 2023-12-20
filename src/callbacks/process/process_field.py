@@ -9,6 +9,7 @@ def process_data(models, inputs, targets, meta_info, mode, args):
         v0_r,
         v0_l,
         v0_o,
+        v0_o_kp,
         pidx,
         v0_r_full,
         v0_l_full,
@@ -27,6 +28,7 @@ def process_data(models, inputs, targets, meta_info, mode, args):
     meta_info["v0.r"] = v0_r
     meta_info["v0.l"] = v0_l
     meta_info["v0.o"] = v0_o
+    meta_info["v0.o.kp"] = v0_o_kp
     meta_info["cams0"] = cams
     meta_info["parts_idx"] = pidx
     meta_info["v0.r.full"] = v0_r_full
