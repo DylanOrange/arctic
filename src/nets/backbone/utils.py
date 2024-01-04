@@ -19,6 +19,5 @@ def get_backbone_info(backbone):
         "ViT": {"n_output_channels": 768, "downsample_rate": 4},
         "ViT-H": {"n_output_channels": 1280, "downsample_rate": 4},
         "ViT-L": {"n_output_channels": 1024, "downsample_rate": 4},
-        "vit": {"n_output_channels": 1280, "downsample_rate": 4},
     }
     return info[backbone]

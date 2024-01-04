@@ -31,6 +31,7 @@ def compute_avg_err(gt_dist, pred_dist, is_valid):
     assert len(diff_list) == len(gt_dist)
     return diff_list
 
+
 def eval_field_errors(_pred, _targets, _meta_info):
     pred = copy.deepcopy(_pred).to("cpu")
     targets = copy.deepcopy(_targets).to("cpu")
@@ -219,17 +220,17 @@ def eval_mrrpe(pred, targets, meta_info):
     joints3d_cam_l_gt = targets["mano.j3d.cam.l"]
     joints3d_cam_r_pred = pred["mano.j3d.cam.r"]
     joints3d_cam_l_pred = pred["mano.j3d.cam.l"]
-    v3d_cam_gt = unpad_vtensor(targets["object.v.cam"], targets["object.v_len"])
-    v3d_cam_pred = unpad_vtensor(pred["object.v.cam"], targets["object.v_len"])
+    # v3d_cam_gt = unpad_vtensor(targets["object.v.cam"], targets["object.v_len"])
+    # v3d_cam_pred = unpad_vtensor(pred["object.v.cam"], targets["object.v_len"])
 
-    bottom_idx = meta_info["part_ids"] == 2
-    bottom_idx = [bidx.nonzero().view(-1) for bidx in bottom_idx]
-    v3d_root_gt = [
-        v3d_gt[bidx].mean(dim=0) for v3d_gt, bidx in zip(v3d_cam_gt, bottom_idx)
-    ]
-    v3d_root_pred = [
-        v3d_pred[bidx].mean(dim=0) for v3d_pred, bidx in zip(v3d_cam_pred, bottom_idx)
-    ]
+    # bottom_idx = meta_info["part_ids"] == 2
+    # bottom_idx = [bidx.nonzero().view(-1) for bidx in bottom_idx]
+    # v3d_root_gt = [
+    #     v3d_gt[bidx].mean(dim=0) for v3d_gt, bidx in zip(v3d_cam_gt, bottom_idx)
+    # ]
+    # v3d_root_pred = [
+    #     v3d_pred[bidx].mean(dim=0) for v3d_pred, bidx in zip(v3d_cam_pred, bottom_idx)
+    # ]
 
     is_valid = targets["is_valid"]
     left_valid = targets["left_valid"] * is_valid
@@ -239,18 +240,18 @@ def eval_mrrpe(pred, targets, meta_info):
     root_l_gt = joints3d_cam_l_gt[:, 0]
     root_r_pred = joints3d_cam_r_pred[:, 0]
     root_l_pred = joints3d_cam_l_pred[:, 0]
-    v3d_root_gt = torch.stack(v3d_root_gt, dim=0)
-    v3d_root_pred = torch.stack(v3d_root_pred, dim=0)
+    # v3d_root_gt = torch.stack(v3d_root_gt, dim=0)
+    # v3d_root_pred = torch.stack(v3d_root_pred, dim=0)
 
     mrrpe_rl = metrics.compute_mrrpe(
         root_r_gt, root_l_gt, root_r_pred, root_l_pred, left_valid * right_valid
     )
-    mrrpe_ro = metrics.compute_mrrpe(
-        root_r_gt, v3d_root_gt, root_r_pred, v3d_root_pred, right_valid * is_valid
-    )
+    # mrrpe_ro = metrics.compute_mrrpe(
+    #     root_r_gt, v3d_root_gt, root_r_pred, v3d_root_pred, right_valid * is_valid
+    # )
     metric_dict = xdict()
     metric_dict["mrrpe/r/l"] = mrrpe_rl
-    metric_dict["mrrpe/r/o"] = mrrpe_ro
+    # metric_dict["mrrpe/r/o"] = mrrpe_ro
     metric_dict = metric_dict.mul(1000.0).to_np()
     return metric_dict
 

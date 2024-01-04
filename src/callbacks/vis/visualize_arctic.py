@@ -111,16 +111,16 @@ def visualize_kps(vis_dict, flag, max_examples):
 
     images = (vis_dict["vis.images"].permute(0, 2, 3, 1) * 255).numpy().astype(np.uint8)
     K = vis_dict["meta_info.intrinsics"]
-    kp2d_b = vis_dict[f"{flag}.object.kp2d.b"].numpy()
-    kp2d_t = vis_dict[f"{flag}.object.kp2d.t"].numpy()
-    bbox2d_b = vis_dict[f"{flag}.object.bbox2d.b"].numpy()
-    bbox2d_t = vis_dict[f"{flag}.object.bbox2d.t"].numpy()
+    kp2d_b = vis_dict["targets.object.kp2d.b"].numpy()
+    kp2d_t = vis_dict["targets.object.kp2d.t"].numpy()
+    bbox2d_b = vis_dict["targets.object.bbox2d.b"].numpy()
+    bbox2d_t = vis_dict["targets.object.bbox2d.t"].numpy()
 
     joints2d_r = vis_dict[f"{flag}.mano.j2d.r"].numpy()
     joints2d_l = vis_dict[f"{flag}.mano.j2d.l"].numpy()
 
-    kp3d_o = vis_dict[f"{flag}.object.kp3d.cam"]
-    bbox3d_o = vis_dict[f"{flag}.object.bbox3d.cam"]
+    kp3d_o = vis_dict["targets.object.kp3d.cam"]
+    bbox3d_o = vis_dict["targets.object.bbox3d.cam"]
     kp2d_proj = tf.project2d_batch(K, kp3d_o)
     kp2d_proj_t, kp2d_proj_b = torch.split(kp2d_proj, [16, 16], dim=1)
     kp2d_proj_t = kp2d_proj_t.numpy()
@@ -245,10 +245,11 @@ def visualize_rends(renderer, vis_dict, max_examples):
     gt_obj_v_cam = unpad_vtensor(
         vis_dict["targets.object.v.cam"], vis_dict["targets.object.v_len"]
     )  # meter
-    pred_obj_v_cam = unpad_vtensor(
-        vis_dict["pred.object.v.cam"], vis_dict["pred.object.v_len"]
-    )
-    pred_obj_f = unpad_vtensor(vis_dict["pred.object.f"], vis_dict["pred.object.f_len"])
+    # pred_obj_v_cam = unpad_vtensor(
+    #     vis_dict["pred.object.v.cam"], vis_dict["pred.object.v_len"]
+    # )
+    gt_obj_f = unpad_vtensor(vis_dict["targets.object.f"], vis_dict["targets.object.f_len"])
+    # pred_obj_f = unpad_vtensor(vis_dict["pred.object.f"], vis_dict["pred.object.f_len"])
     K = vis_dict["meta_info.intrinsics"]
 
     # rendering
@@ -269,7 +270,7 @@ def visualize_rends(renderer, vis_dict, max_examples):
             mano_faces_r,
             mano_faces_l,
             gt_obj_v_cam[idx],
-            pred_obj_f[idx],
+            gt_obj_f[idx],
             r_valid,
             l_valid,
             K_i,
@@ -284,8 +285,8 @@ def visualize_rends(renderer, vis_dict, max_examples):
             pred_vertices_l_cam[idx],
             mano_faces_r,
             mano_faces_l,
-            pred_obj_v_cam[idx],
-            pred_obj_f[idx],
+            gt_obj_v_cam[idx],
+            gt_obj_f[idx],
             r_valid,
             l_valid,
             K_i,

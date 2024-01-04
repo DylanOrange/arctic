@@ -11,7 +11,7 @@ from timm.models.layers import drop_path, to_2tuple, trunc_normal_
 
 def vit(pretrained):
     model = ViT(
-                img_size=(224, 224),
+                img_size=(256, 192),
                 patch_size=16,
                 embed_dim=1280,
                 depth=32,
@@ -26,7 +26,7 @@ def vit(pretrained):
     checkpoint = torch.load(checkpoint_path)
     backbone_dict = {key: value for key, value in checkpoint['state_dict'].items() if key.startswith('backbone')}
     cleaned_dict = {key.replace('backbone.', ''): value for key, value in backbone_dict.items()}
-    model.load_state_dict(cleaned_dict, strict=False)
+    model.load_state_dict(cleaned_dict, strict=True)
     return model
 
 def get_abs_pos(abs_pos, h, w, ori_h, ori_w, has_cls_token=True):
@@ -244,7 +244,7 @@ class ViT(nn.Module):
         num_patches = self.patch_embed.num_patches
 
         # since the pretraining model has class token
-        self.pos_embedding = nn.Parameter(torch.zeros(1, num_patches + 1, embed_dim))
+        self.pos_embed= nn.Parameter(torch.zeros(1, num_patches + 1, embed_dim))
 
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, depth)]  # stochastic depth decay rule
 
@@ -257,8 +257,8 @@ class ViT(nn.Module):
 
         self.last_norm = norm_layer(embed_dim) if last_norm else nn.Identity()
 
-        if self.pos_embedding is not None:
-            trunc_normal_(self.pos_embedding, std=.02)
+        if self.pos_embed is not None:
+            trunc_normal_(self.pos_embed, std=.02)
 
         self._freeze_stages()
 
@@ -286,7 +286,7 @@ class ViT(nn.Module):
                     param.requires_grad = False
 
         if self.freeze_ffn:
-            self.pos_embedding.requires_grad = False
+            self.pos_embed.requires_grad = False
             self.patch_embed.eval()
             for param in self.patch_embed.parameters():
                 param.requires_grad = False
@@ -321,16 +321,16 @@ class ViT(nn.Module):
 
     @torch.jit.ignore
     def no_weight_decay(self):
-        return {'pos_embedding', 'cls_token'}
+        return {'pos_embed', 'cls_token'}
 
     def forward_features(self, x):
         B, C, H, W = x.shape#2,3,256,192
         x, (Hp, Wp) = self.patch_embed(x)#2,192,1280
 
-        if self.pos_embedding is not None:
+        if self.pos_embed is not None:
             # fit for multiple GPU training
             # since the first element for pos embed (sin-cos manner) is zero, it will cause no difference
-            x = x + self.pos_embedding[:, 1:] + self.pos_embedding[:, :1]
+            x = x + self.pos_embed[:, 1:] + self.pos_embed[:, :1]
 
         for blk in self.blocks:
             if self.use_checkpoint:

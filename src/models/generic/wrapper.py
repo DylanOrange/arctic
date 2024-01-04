@@ -102,11 +102,11 @@ class GenericWrapper(AbstractPL):
     def forward(self, inputs, targets, meta_info, mode):
         # torch.cuda.synchronize()
         # start_forward = time.time()
-        
+    
         models = {
             "mano_r": self.mano_r,
             "mano_l": self.mano_l,
-            "arti_head": self.model.arctic_model.regressor.arti_head,
+            "arti_head": self.model.regressor.arti_head,
             "mesh_sampler": MANODecimator(),
             "object_sampler": self.object_sampler,
         }
@@ -114,16 +114,16 @@ class GenericWrapper(AbstractPL):
         self.set_flags(mode)
         inputs = xdict(inputs)
         targets = xdict(targets)
-        meta_info = xdict(meta_info)   
-             
+        meta_info = xdict(meta_info)
+
         # torch.cuda.synchronize()
         # start_processing = time.time()
-        
+
         with torch.no_grad():
             inputs, targets, meta_info = self.process_fn(
                 models, inputs, targets, meta_info, mode, self.args
             )
-            
+
         # torch.cuda.synchronize()
         # end_processing = time.time()
         # print('one data processing time is {}'.format(end_processing-start_processing))
@@ -133,46 +133,52 @@ class GenericWrapper(AbstractPL):
             meta_info[key] = targets[key]
         meta_info["mano.faces.r"] = self.mano_r.faces
         meta_info["mano.faces.l"] = self.mano_l.faces
-        
+
         # torch.cuda.synchronize()
         # start_model = time.time()
-        
+
+        # pred = self.model(inputs, targets, meta_info)
         pred = self.model(inputs, meta_info)
-        
+
         # torch.cuda.synchronize()
         # end_model = time.time()
         # print('one model time is {}'.format(end_model-start_model))
-        
+
         loss_dict = self.loss_fn(
             pred=pred, gt=targets, meta_info=meta_info, args=self.args
         )
         loss_dict = {k: (loss_dict[k][0].mean(), loss_dict[k][1]) for k in loss_dict}
         loss_dict = mul_loss_dict(loss_dict)
-        loss_dict["loss"] = sum(loss_dict[k] for k in loss_dict)
+        loss_dict["loss"] = sum(loss_dict[k] for k in loss_dict)#already sum here
 
-        # conversion for vis and eval
-        keys = list(pred.keys())
+        keys = list(targets.keys())
         for key in keys:
             # denormalize 2d keypoints
             if "2d.norm" in key:
                 denorm_key = key.replace(".norm", "")
-                assert key in targets.keys(), f"Do not have key {key}"
+                if key in pred.keys():
+                    val_pred = pred[key]
+                    val_denorm_pred = data_utils.unormalize_kp2d(
+                    val_pred, self.args.img_res)
+                    pred[denorm_key] = val_denorm_pred
 
-                val_pred = pred[key]
+                # assert key in targets.keys(), f"Do not have key {key}"
+
+                # val_pred = pred[key]
                 val_gt = targets[key]
 
-                val_denorm_pred = data_utils.unormalize_kp2d(
-                    val_pred, self.args.img_res
-                )
+                # val_denorm_pred = data_utils.unormalize_kp2d(
+                #     val_pred, self.args.img_res
+                # )
                 val_denorm_gt = data_utils.unormalize_kp2d(val_gt, self.args.img_res)
 
-                pred[denorm_key] = val_denorm_pred
+                # pred[denorm_key] = val_denorm_pred
                 targets[denorm_key] = val_denorm_gt
 
         # torch.cuda.synchronize()
         # end_forward = time.time()
         # print('one forward time is {}'.format(end_forward-start_forward))
-        
+
         if mode == "train":
             return {"out_dict": (inputs, targets, meta_info, pred), "loss": loss_dict}
 

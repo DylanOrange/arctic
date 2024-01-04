@@ -53,7 +53,7 @@ def process_data(
     # oidx = torch.argmin(torch.cdist(v0_o, v0_o_full, p=2), dim=2)#64,600
 
     # B = ridx.shape[0]
-    img_res = 224
+    img_res = meta_info["img_res"][0]
     K = meta_info["intrinsics"]
     gt_pose_r = targets["mano.pose.r"]  # MANO pose parameters
     gt_betas_r = targets["mano.beta.r"]  # MANO beta parameters

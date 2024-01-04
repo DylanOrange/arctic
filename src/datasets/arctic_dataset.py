@@ -1,12 +1,13 @@
 import json
 import os.path as op
-
+import time
+import cv2
 import numpy as np
 import torch
-import time
 from loguru import logger
 from torch.utils.data import Dataset
 from torchvision.transforms import Normalize
+import matplotlib.pyplot as plt
 
 import common.data_utils as data_utils
 import common.rot as rot
@@ -24,16 +25,17 @@ class ArcticDataset(Dataset):
         return data
 
     def getitem(self, imgname, load_rgb=True):
-        
-        # start_getitem = time.time()
         args = self.args
-        # LOADING START
-        
+        # LOADING START        
+
         # start_loading = time.time()
         speedup = args.speedup
-        sid, seq_name, view_idx, image_idx = imgname.split("/")[-4:]
+        split_parts = imgname.split("/")[-4:]
+        sid, seq_name, view_idx, image_idx = split_parts
         obj_name = seq_name.split("_")[0]
         view_idx = int(view_idx)#index of sequence
+
+        save_img_name = ('/'.join(split_parts)).split('.')[0]
 
         seq_data = self.data[f"{sid}/{seq_name}"]
 
@@ -52,13 +54,14 @@ class ArcticDataset(Dataset):
         else:
             intrx = np.array(self.intris_mat[sid][view_idx - 1])
 
-        # hands
+        # hands, related to both image index and view index(different coordinate system)
         joints2d_r = pad_jts2d(data_2d["joints.right"][vidx, view_idx].copy())#pad one dimension after the 2D coordinate of joints 
         joints3d_r = data_cam["joints.right"][vidx, view_idx].copy()
 
         joints2d_l = pad_jts2d(data_2d["joints.left"][vidx, view_idx].copy())
         joints3d_l = data_cam["joints.left"][vidx, view_idx].copy()
 
+        #only related to image index but not view index
         pose_r = data_params["pose_r"][vidx].copy()
         betas_r = data_params["shape_r"][vidx].copy()
         pose_l = data_params["pose_l"][vidx].copy()
@@ -89,14 +92,11 @@ class ArcticDataset(Dataset):
         obj_radian = data_params["obj_arti"][vidx].copy()
 
         image_size = self.image_sizes[sid][view_idx]
-        image_size = {"width": image_size[0], "height": image_size[1]}
+        image_size = {"width": image_size[0], "height": image_size[1]}#2000,2800
 
-        bbox = data_bbox[vidx, view_idx]  # original bbox
+        bbox = data_bbox[vidx, view_idx]#original bbox,993,1473,6.27
         is_egocam = "/0/" in imgname
 
-        # end_loading = time.time()
-        # print('one loading time is {}'.format(end_loading-start_loading))
-        
         # LOADING END
 
         # SPEEDUP PROCESS
@@ -127,21 +127,16 @@ class ArcticDataset(Dataset):
             imgname = imgname.replace(
                 "./arctic_data/", "/storage/user/lud/dataset/arctic/data/arctic_data/data/"
             ).replace("/data/data/", "/data/")
-            
-            # start_image = time.time()
-            cv_img, img_status = read_img(imgname, (2800, 2000, 3))
-            # end_image = time.time()
-            # print('one image is {}'.format(end_image-start_image))
-            
+
+            cv_img, img_status = read_img(imgname, (2800, 2000, 3))#1000,1000,3
+
         else:
             norm_img = None
-
-        center = [bbox[0], bbox[1]]
-        scale = bbox[2]
+       
+        center = [bbox[0], bbox[1]]#500,500
+        scale = bbox[2]#3.3333
 
         # augment parameters
-        # start_aug = time.time()
-        
         augm_dict = data_utils.augm_params(
             self.aug_data,
             args.flip_prob,
@@ -178,6 +173,9 @@ class ArcticDataset(Dataset):
         bbox2d = np.concatenate((bbox2d_t, bbox2d_b), axis=0)
         kp2d = np.concatenate((kp2d_t, kp2d_b), axis=0)
 
+        crop_joints2d_r = data_utils.unnormalize_2d_kp(joints2d_r, args.img_res)
+        crop_joints2d_l = data_utils.unnormalize_2d_kp(joints2d_l, args.img_res)
+
         # data augmentation: image
         if load_rgb:
             img = data_utils.rgb_processing(
@@ -188,18 +186,60 @@ class ArcticDataset(Dataset):
                 augm_dict,
                 img_res=args.img_res,
             )
-            img = torch.from_numpy(img).float()
-            norm_img = self.normalize_img(img)
-        # end_aug = time.time()
-        # print('one augmentation is {}'.format(end_aug-start_aug))
+            rgb_img = np.transpose(img.astype("float32"), (2, 0, 1)) / 255.0
+            np_img = torch.from_numpy(rgb_img).float()
+            norm_img = self.normalize_img(np_img)
+
+        # plt.imshow(img/255.0)
+        # for kp in crop_joints2d_l[:,:2]:
+        #     plt.scatter(kp[0], kp[1], color = 'red', s=10)
+        # for kp in crop_joints2d_r[:,:2]:
+        #     plt.scatter(kp[0], kp[1], color = 'blue', s=10)
+        # plt.axis('off')
+        # plt.show()
+        # print('--')
+
+        # hands bounding box
+        bboxes = []
+
+        keyp = crop_joints2d_l[:,:2]
+        kp_bbox = [keyp[:,0].min(), keyp[:,1].min(), keyp[:,0].max(), keyp[:,1].max()]
+        bboxes.append(kp_bbox)
+
+        keyp = crop_joints2d_r[:,:2]
+        kp_bbox = [keyp[:,0].min(), keyp[:,1].min(), keyp[:,0].max(), keyp[:,1].max()]
+        bboxes.append(kp_bbox)
+
+        kp_boxes = np.stack(bboxes)
         
-        # start_export = time.time()
+        kp_img_list = []
+        kp_center = (kp_boxes[:, 2:4] + kp_boxes[:, 0:2]) / 2.0
+        kp_scale = 2.0*(kp_boxes[:, 2:4] - kp_boxes[:, 0:2]) / 200.0
+        for i in range(2):
+            bbox_size = data_utils.expand_to_aspect_ratio(kp_scale[i]*200, target_aspect_ratio=[192,256]).max()#
+            kp_rgb_img = data_utils.generate_patch_image(img,[kp_center[i,0], kp_center[i,1], bbox_size, bbox_size], 1.0, 0,\
+                                                     [args.img_res, args.img_res],cv2.INTER_CUBIC)[0]
+            kp_img = np.transpose(kp_rgb_img.astype("float32"), (2, 0, 1)) / 255.0
+            kp_img = torch.from_numpy(kp_img).float()
+            norm_kp_img = self.normalize_img(kp_img)
+            kp_img_list.append(norm_kp_img)
+            # plt.imshow(kp_rgb_img/255.0)
+            # for kp in crop_joints2d_l[:,:2]:
+            #     plt.scatter(kp[0], kp[1], color = 'red', s=10)
+            # plt.axis('off')
+            # plt.show()
+            # print('--')
+
+        kp_imgs = torch.stack(kp_img_list)
+        
         # exporting starts
         inputs = {}
         targets = {}
         meta_info = {}
         inputs["img"] = norm_img
+        inputs["kp_img"] = kp_imgs
         meta_info["imgname"] = imgname
+        meta_info["save_img_name"] = save_img_name
         rot_r = data_cam["rot_r_cam"][vidx, view_idx]
         rot_l = data_cam["rot_l_cam"][vidx, view_idx]
 
@@ -249,8 +289,6 @@ class ArcticDataset(Dataset):
         # multiply rotation from data augmentation, canonical->image->augmented
         obj_rot_aug = rot.rot_aa(obj_rot, augm_dict["rot"])
         targets["object.rot"] = torch.FloatTensor(obj_rot_aug).view(1, 3)
-
-        # full image camera coord, not change 3d coordiantes after augmentation?
         targets["mano.j3d.full.r"] = torch.FloatTensor(joints3d_r[:, :3])
         targets["mano.j3d.full.l"] = torch.FloatTensor(joints3d_l[:, :3])
         targets["object.kp3d.full.b"] = torch.FloatTensor(kp3d_b[:, :3])
@@ -283,6 +321,7 @@ class ArcticDataset(Dataset):
         meta_info["center"] = np.array(center, dtype=np.float32)
         meta_info["is_flipped"] = augm_dict["flip"]
         meta_info["rot_angle"] = np.float32(augm_dict["rot"])
+        meta_info["img_res"] = args.img_res
         # meta_info["sample_index"] = index
 
         # root and at least 3 joints inside image
@@ -292,11 +331,6 @@ class ArcticDataset(Dataset):
         targets["joints_valid_r"] = np.ones(21) * targets["right_valid"]
         targets["joints_valid_l"] = np.ones(21) * targets["left_valid"]
 
-        # end_export = time.time()
-        # print('one export time is {}'.format(end_export-start_export))
-        # end_getitem = time.time()
-        # print('one get item time is {}'.format(end_getitem-start_getitem))
-        
         return inputs, targets, meta_info
 
     def _process_imgnames(self, seq, split):

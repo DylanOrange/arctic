@@ -119,7 +119,7 @@ def get_num_images(split, num_images):
         return 1000
 
     if split == "minival":
-        return 80
+        return 200
 
     if split == "smalltest":
         return 12000

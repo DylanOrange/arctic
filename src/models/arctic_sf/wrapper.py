@@ -9,7 +9,7 @@ class ArcticSFWrapper(GenericWrapper):
     def __init__(self, args):
         super().__init__(args)
         self.model = ArcticSF(
-            backbone="ViT",
+            backbone="ViT-H",
             focal_length=args.focal_length,
             img_res=args.img_res,
             args=args,
@@ -17,11 +17,11 @@ class ArcticSFWrapper(GenericWrapper):
         self.process_fn = process_data
         self.loss_fn = compute_loss
         self.metric_dict = [
-            "cdev",
+            # "cdev",
             "mrrpe",
             "mpjpe.ra",
-            "aae",
-            "success_rate",
+            # "aae",
+            # "success_rate",
         ]
 
         self.vis_fns = [visualize_all]

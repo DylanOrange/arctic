@@ -13,14 +13,14 @@ class Regressor(nn.Module):
         self.mano_l = MANOHead(is_rhand=False, focal_length=focal_length, img_res=img_res)
         self.arti_head = ArtiHead(focal_length=focal_length, img_res=img_res)
 
-    def forward(self, hmr_output_r, hmr_output_l, hmr_output_o, meta_info):
+    def forward(self, hmr_output_r, hmr_output_l, meta_info):
 
         query_names = meta_info["query_names"]
         K = meta_info["intrinsics"]
         
         root_r = hmr_output_r["cam_t.wp"]
         root_l = hmr_output_l["cam_t.wp"]
-        root_o = hmr_output_o["cam_t.wp"]
+        # root_o = hmr_output_o["cam_t.wp"]
 
         mano_output_r = self.mano_r(
             rotmat=hmr_output_r["pose"],
@@ -37,12 +37,12 @@ class Regressor(nn.Module):
         )
 
         # fwd mesh when in val or vis
-        arti_output = self.arti_head(
-            rot=hmr_output_o["rot"],
-            angle=hmr_output_o["radian"],
-            query_names=query_names,
-            cam=root_o,
-            K=K,
-        )
+        # arti_output = self.arti_head(
+        #     rot=hmr_output_o["rot"],
+        #     angle=hmr_output_o["radian"],
+        #     query_names=query_names,
+        #     cam=root_o,
+        #     K=K,
+        # )
 
-        return mano_output_r, mano_output_l, arti_output
+        return mano_output_r, mano_output_l

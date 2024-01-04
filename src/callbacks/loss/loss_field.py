@@ -86,7 +86,33 @@ def dist_loss_kp(loss_dict, pred, gt, weight=1.0):
     loss_dict[f"loss/dist/lo"] = (loss_lo.mean(), weight)
     loss_dict[f"loss/dist/or"] = (loss_or.mean(), weight)
     loss_dict[f"loss/dist/ol"] = (loss_ol.mean(), weight)
+
     return loss_dict
+
+
+def diffusion_dist_loss_kp(pred, gt):
+    # is_valid = gt["is_valid"]
+    # mask_o = meta_info["mask"]
+
+    # interfield
+    loss_ro = mse_loss(pred[f"dist.ro.kp"], gt["dist.ro.kp"])
+    loss_lo = mse_loss(pred[f"dist.lo.kp"], gt["dist.lo.kp"])
+    loss_or = mse_loss(pred[f"dist.or.kp"], gt["dist.or.kp"])
+    loss_ol = mse_loss(pred[f"dist.ol.kp"], gt["dist.ol.kp"])
+
+    # # too many 10cm. Skip them in the loss to prevent overfitting
+    # bnd = 0.1  # 10cm
+    # bnd_idx_ro = gt["dist.ro.kp"] == bnd
+    # bnd_idx_lo = gt["dist.lo.kp"] == bnd
+    # bnd_idx_or = gt["dist.or.kp"] == bnd
+    # bnd_idx_ol = gt["dist.ol.kp"] == bnd
+
+    # loss_or[bnd_idx_or] *= 0.1
+    # loss_ol[bnd_idx_ol] *= 0.1
+    # loss_ro[bnd_idx_ro] *= 0.1
+    # loss_lo[bnd_idx_lo] *= 0.1
+
+    return loss_ro.mean() + loss_lo.mean() + loss_or.mean() + loss_ol.mean()
 
 def computed_dist_loss(loss_dict, pred, gt, weight=100.0):
     is_valid = gt["is_valid"]
@@ -96,7 +122,7 @@ def computed_dist_loss(loss_dict, pred, gt, weight=100.0):
     loss_ro = mse_loss(pred[f"dist.ro.kp.computed"], gt["dist.ro.kp"])
     loss_lo = mse_loss(pred[f"dist.lo.kp.computed"], gt["dist.lo.kp"])
 
-    pad_olen = min(pred[f"dist.or.kp"].shape[1], gt["dist.or.kp"].shape[1])
+    pad_olen = min(pred[f"dist.or.kp.computed"].shape[1], gt["dist.or.kp"].shape[1])
 
     loss_or = mse_loss(pred[f"dist.or.kp.computed"][:, :pad_olen], gt["dist.or.kp"][:, :pad_olen])
     loss_ol = mse_loss(pred[f"dist.ol.kp.computed"][:, :pad_olen], gt["dist.ol.kp"][:, :pad_olen])

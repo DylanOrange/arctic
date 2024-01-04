@@ -103,10 +103,10 @@ def generate_patch_image(
 ):
     img = cvimg.copy()
 
-    bb_c_x = float(bbox[0])
-    bb_c_y = float(bbox[1])
-    bb_width = float(bbox[2])
-    bb_height = float(bbox[3])
+    bb_c_x = float(bbox[0])#500
+    bb_c_y = float(bbox[1])#500
+    bb_width = float(bbox[2])#499
+    bb_height = float(bbox[3])#499
 
     trans = gen_trans_from_patch_cv(
         bb_c_x, bb_c_y, bb_width, bb_height, out_shape[1], out_shape[0], scale, rot
@@ -200,7 +200,7 @@ def rgb_processing(is_train, rgb_img, center, bbox_dim, augm_dict, img_res):
     rgb_img[:, :, 0] = np.minimum(255.0, np.maximum(0.0, rgb_img[:, :, 0] * pn[0]))
     rgb_img[:, :, 1] = np.minimum(255.0, np.maximum(0.0, rgb_img[:, :, 1] * pn[1]))
     rgb_img[:, :, 2] = np.minimum(255.0, np.maximum(0.0, rgb_img[:, :, 2] * pn[2]))
-    rgb_img = np.transpose(rgb_img.astype("float32"), (2, 0, 1)) / 255.0
+    # rgb_img = np.transpose(rgb_img.astype("float32"), (2, 0, 1)) / 255.0
     return rgb_img
 
 
@@ -370,17 +370,23 @@ def get_aug_intrix(
         intrx[1, 2] *= k_scale
     return intrx
 
-# if __name__ == "__main__":
-    
-#     [ WARN:0@3344.460] global loadsave.cpp:248 findDecoder imread_('/storage/user/lud/dataset/arctic/data/arctic_data/data/cropped_images/s08/waffleiron_use_02/1/00703.jpg'): can't open/read file: check file path/integrity
-# [ WARN:0@3344.460] global loadsave.cpp:248 findDecoder imread_('/storage/user/lud/dataset/arctic/data/arctic_data/data/cropped_images/s06/microwave_use_01/2/00338.jpg'): can't open/read file: check file path/integrity
-# [ WARN:0@3344.460] global loadsave.cpp:248 findDecoder imread_('/storage/user/lud/dataset/arctic/data/arctic_data/data/cropped_images/s01/microwave_use_02/4/00336.jpg'): can't open/read file: check file path/integrity
-# [ WARN:0@3344.460] global loadsave.cpp:248 findDecoder imread_('/storage/user/lud/dataset/arctic/data/arctic_data/data/cropped_images/s04/scissors_grab_01/7/00653.jpg'): can't open/read file: check file path/integrity
+def expand_to_aspect_ratio(input_shape, target_aspect_ratio=None):
+    """Increase the size of the bounding box to match the target shape."""
+    if target_aspect_ratio is None:
+        return input_shape
 
+    try:
+        w , h = input_shape
+    except (ValueError, TypeError):
+        return input_shape
 
-    # file = '/storage/user/lud/dataset/arctic/data/arctic_data/data/cropped_images/s06/microwave_use_01/2/00338.jpg'
-    # try:
-    #     cv_img = _read_img(file)
-    #     print('good')
-    # except:
-    #     print('bad')
+    w_t, h_t = target_aspect_ratio
+    if h / w < h_t / w_t:
+        h_new = max(w * h_t / w_t, h)
+        w_new = w
+    else:
+        h_new = h
+        w_new = max(h * w_t / h_t, w)
+    if h_new < h or w_new < w:
+        breakpoint()
+    return np.array([w_new, h_new])

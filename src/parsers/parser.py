@@ -11,7 +11,7 @@ def construct_args():
     parser.add_argument(
         "--method",
         type=str,
-        default='InterHand',
+        default='arctic_sf',
         choices=[None, "arctic_sf", "arctic_lstm", "field_sf", "field_lstm", "InterHand"],
     )
     parser.add_argument("--exp_key", type=str, default=None)
@@ -41,7 +41,7 @@ def construct_args():
     args = set_default_params(args, default_args)
 
     args.focal_length = 1000.0
-    args.img_res = 224
+    args.img_res = 256
     args.rot_factor = 30.0
     args.noise_factor = 0.4
     args.scale_factor = 0.25

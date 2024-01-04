@@ -10,7 +10,7 @@ class InterHandWrapper(GenericWrapper):
     def __init__(self, args):
         super().__init__(args)
         self.model = InterHand(
-            backbone="ViT",
+            backbone="ViT-L",
             args=args
         )
         self.process_fn = process_data
