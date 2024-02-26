@@ -34,7 +34,7 @@ def transform_image(im, bbox_loose, cap_dim):
 
 def process_fname(fname, bbox_loose, sid, view_idx, pbar):
     vidx = int(op.basename(fname).split(".")[0]) - misc[sid]["ioi_offset"]
-    out_p = fname.replace("../original_packages/arctic/data/arctic_data/data/images", "./outputs/croppped_images")
+    out_p = fname.replace("/data/dylu/data/arctic/arctic_data/data/images", "./outputs/croppped_images")
     num_frames = bbox_loose.shape[0]
 
     if vidx < 0:
@@ -81,7 +81,7 @@ def process_seq(seq_p):
         bbox_loose[:, 2] *= 1.5  # 1.5X around the bbox
 
         fnames = glob(
-            f"../original_packages/arctic/data/arctic_data/data/images/{sid}/{seq_name}/{view_idx}/*.jpg"
+            f"/data/dylu/data/arctic/arctic_data/data/images/{sid}/{seq_name}/{view_idx}/*.jpg"
         )
         fnames = sorted(fnames)
         if len(fnames) == 0:

@@ -135,3 +135,57 @@ def compute_loss(pred, gt, meta_info, args):
     loss_dict = xdict()
     loss_dict = dist_loss_kp(loss_dict, pred, gt, weight=100.0)
     return loss_dict
+
+def normal_loss(loss_dict, pred, gt, meta_info, weight=100.0):
+    is_valid = gt["is_valid"]
+    mask_o = meta_info["mask"]
+
+    # interfield
+    loss_ro = mse_loss(pred[f"direc.ro"], gt["direc.ro"])
+    loss_lo = mse_loss(pred[f"direc.lo"], gt["direc.lo"])
+
+    pad_olen = min(pred[f"direc.or"].shape[1], gt["direc.or"].shape[1])
+
+    loss_or = mse_loss(pred[f"direc.or"][:, :pad_olen], gt["direc.or"][:, :pad_olen])
+    loss_ol = mse_loss(pred[f"direc.ol"][:, :pad_olen], gt["direc.ol"][:, :pad_olen])
+
+    #here we have only keypoint, no need for mask
+    loss_or = loss_or * mask_o[:,:,None] * is_valid[:, None, None]
+    loss_ol = loss_ol * mask_o[:,:,None] * is_valid[:, None, None]
+
+    loss_ro = loss_ro * is_valid[:, None, None]
+    loss_lo = loss_lo * is_valid[:, None, None]
+
+    # weight = 100.0
+    loss_dict[f"loss/normal/ro"] = (loss_ro.mean(), weight)
+    loss_dict[f"loss/normal/lo"] = (loss_lo.mean(), weight)
+    loss_dict[f"loss/normal/or"] = (loss_or.mean(), weight)
+    loss_dict[f"loss/normal/ol"] = (loss_ol.mean(), weight)
+    return loss_dict
+
+def field_loss(loss_dict, pred, gt, meta_info, weight=100.0):
+    is_valid = gt["is_valid"]
+    mask_o = meta_info["mask"]
+
+    # interfield
+    loss_ro = mse_loss(pred[f"field.ro"], gt["field.ro"])
+    loss_lo = mse_loss(pred[f"field.lo"], gt["field.lo"])
+
+    pad_olen = min(pred[f"field.or"].shape[1], gt["field.or"].shape[1])
+
+    loss_or = mse_loss(pred[f"field.or"][:, :pad_olen], gt["field.or"][:, :pad_olen])
+    loss_ol = mse_loss(pred[f"field.ol"][:, :pad_olen], gt["field.ol"][:, :pad_olen])
+
+    #here we have only keypoint, no need for mask
+    loss_or = loss_or * mask_o[:,:,None] * is_valid[:, None, None]
+    loss_ol = loss_ol * mask_o[:,:,None] * is_valid[:, None, None]
+
+    loss_ro = loss_ro * is_valid[:, None, None]
+    loss_lo = loss_lo * is_valid[:, None, None]
+
+    # weight = 100.0
+    loss_dict[f"loss/field/ro"] = (loss_ro.mean(), weight)
+    loss_dict[f"loss/field/lo"] = (loss_lo.mean(), weight)
+    loss_dict[f"loss/field/or"] = (loss_or.mean(), weight)
+    loss_dict[f"loss/field/ol"] = (loss_ol.mean(), weight)
+    return loss_dict

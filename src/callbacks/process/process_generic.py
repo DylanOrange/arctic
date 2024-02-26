@@ -1,7 +1,7 @@
 import torch
 
 import src.utils.interfield as inter
-
+from src.nets.pointnet_utils import normalize_point_cloud_torch
 
 def prepare_mano_template(batch_size, mano_layer, mesh_sampler, is_right):
     root_idx = 0
@@ -200,5 +200,94 @@ def prepare_kp_interfield(targets, max_dist, alterkey = False):
         targets["idx.lo.kp"] = dist_lo_idx
         targets["idx.or.kp"] = dist_or_idx
         targets["idx.ol.kp"] = dist_ol_idx
+
+    return targets
+
+def prepare_norm_interfield(targets, max_dist):
+    dist_min = 0.0
+    dist_max = max_dist
+
+    vertex_r, center, scale_r = normalize_point_cloud_torch(targets["mano.v3d.cam.r"])
+    vertex_r_o = (targets["object.v.cam"] - center)/ scale_r
+
+    vertex_l, center, scale_l = normalize_point_cloud_torch(targets["mano.v3d.cam.l"])
+    vertex_l_o = (targets["object.v.cam"] - center)/ scale_l
+      
+    dist_ro, dist_ro_idx = inter.compute_dist_mano_to_obj(
+        vertex_r,
+        vertex_r_o,
+        targets["object.v_len"],
+        dist_min,
+        (dist_max/scale_r).max(),
+    )
+    dist_lo, dist_lo_idx = inter.compute_dist_mano_to_obj(
+        vertex_l,
+        vertex_l_o,
+        targets["object.v_len"],
+        dist_min,
+        (dist_max/scale_l).max(),
+    )
+    dist_or, dist_or_idx = inter.compute_dist_obj_to_mano(
+        vertex_r,
+        vertex_r_o,
+        targets["object.v_len"],
+        dist_min,
+        (dist_max/scale_r).max(),
+    )
+    dist_ol, dist_ol_idx = inter.compute_dist_obj_to_mano(
+        vertex_l,
+        vertex_l_o,
+        targets["object.v_len"],
+        dist_min,
+        (dist_max/scale_l).max(),
+    )
+
+    targets["dist.ro.norm"] = dist_ro
+    targets["dist.lo.norm"] = dist_lo
+    targets["dist.or.norm"] = dist_or
+    targets["dist.ol.norm"] = dist_ol
+
+    targets["idx.ro.norm"] = dist_ro_idx
+    targets["idx.lo.norm"] = dist_lo_idx
+    targets["idx.or.norm"] = dist_or_idx
+    targets["idx.ol.norm"] = dist_ol_idx
+    return targets
+
+def prepare_normal(targets):
+    
+    ro_cloest_kp_idx = targets["idx.ro"].unsqueeze(-1).repeat(1, 1, 3)
+    lo_cloest_kp_idx = targets["idx.lo"].unsqueeze(-1).repeat(1, 1, 3)
+    ro_cloest_kp = targets["object.v.cam"].gather(dim=1, index = ro_cloest_kp_idx)
+    lo_cloest_kp = targets["object.v.cam"].gather(dim=1, index = lo_cloest_kp_idx)
+
+    or_cloest_kp_idx = targets['idx.or'].unsqueeze(-1).repeat(1, 1, 3)
+    ol_cloest_kp_idx = targets['idx.ol'].unsqueeze(-1).repeat(1, 1, 3)
+    or_cloest_kp = targets["mano.v3d.cam.r"].gather(dim=1, index = or_cloest_kp_idx)
+    ol_cloest_kp = targets["mano.v3d.cam.l"].gather(dim=1, index = ol_cloest_kp_idx)
+        
+    vector_ro = targets["mano.v3d.cam.r"]-ro_cloest_kp
+    vector_lo = targets["mano.v3d.cam.l"]-lo_cloest_kp
+    vector_or = targets["object.v.cam"]-or_cloest_kp
+    vector_ol = targets["object.v.cam"]-ol_cloest_kp
+
+    dist_ro = torch.linalg.norm(vector_ro,dim=2,keepdim =True)
+    dist_lo = torch.linalg.norm(vector_lo,dim=2,keepdim =True)
+    dist_or = torch.linalg.norm(vector_or,dim=2,keepdim =True)
+    dist_ol = torch.linalg.norm(vector_ol,dim=2,keepdim =True)
+    
+    direction_ro = vector_ro/dist_ro
+    direction_lo = vector_lo/dist_lo
+    direction_or = vector_or/dist_or
+    direction_ol = vector_ol/dist_ol
+    
+    targets["direc.ro"] = direction_ro#778
+    targets["direc.lo"] = direction_lo#778
+    targets["direc.or"] = direction_or#4000
+    targets["direc.ol"] = direction_ol#4000
+    
+    targets["field.ro"] = vector_ro#778
+    targets["field.lo"] = vector_lo#778
+    targets["field.or"] = vector_or#4000
+    targets["field.ol"] = vector_ol#4000
 
     return targets

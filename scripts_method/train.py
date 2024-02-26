@@ -1,6 +1,7 @@
 import comet_ml
 import os
 import os.path as op
+os.environ["CUDA_VISIBLE_DEVICES"] = "3"
 import sys
 from pprint import pformat
 
@@ -16,8 +17,12 @@ import src.factory as factory
 from common.torch_utils import reset_all_seeds
 from src.utils.const import args
 
+import resource
+rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
+resource.setrlimit(resource.RLIMIT_NOFILE, (2048, rlimit[1]))
 
 def main(args):
+
     if args.experiment is not None:
         comet_utils.log_exp_meta(args)
     reset_all_seeds(args.seed)
@@ -51,6 +56,7 @@ def main(args):
         accumulate_grad_batches=args.acc_grad,
         devices=1,
         accelerator="gpu",
+        # strategy="ddp_find_unused_parameters_true",
         logger=None,
         min_epochs=args.num_epoch,
         max_epochs=args.num_epoch,
@@ -62,6 +68,7 @@ def main(args):
         enable_model_summary=False,
     )
 
+    os.makedirs(os.path.join(args.log_dir, 'checkpoints'), exist_ok=True)
     reset_all_seeds(args.seed)
     train_loader = factory.fetch_dataloader(args, "train")
     logger.info(f"Hyperparameters: \n {pformat(args)}")

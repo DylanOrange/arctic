@@ -194,6 +194,8 @@ def process_data(
 
     targets = generic.prepare_kp_interfield(targets, max_dist = args.max_dist)
     targets = generic.prepare_interfield(targets, max_dist = args.max_dist)
+    targets = generic.prepare_norm_interfield(targets, max_dist = args.max_dist)
+    targets = generic.prepare_normal(targets)
 
     # dist_or, _ = inter.compute_dist_obj_to_mano(
     #     targets["mano.v3d.cam.r"],

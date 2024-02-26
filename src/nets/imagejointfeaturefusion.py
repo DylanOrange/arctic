@@ -19,7 +19,7 @@ class ImageJointfeaturefusion(nn.Module):
             nn.Conv1d(out_dim, out_dim, 1)
         )
         self.fusion = nn.Sequential(
-            nn.Conv1d(3*out_dim, out_dim, 1),
+            nn.Conv1d(2*out_dim, out_dim, 1),
             nn.BatchNorm1d(out_dim),
             nn.ReLU(),
             nn.Conv1d(out_dim, out_dim, 1)
@@ -41,5 +41,6 @@ class ImageJointfeaturefusion(nn.Module):
 
         coord_feat = self.pos_emb(joint_xyz.permute(0, 2, 1).contiguous())#64,128,21
 
-        fused_feat = self.fusion(torch.concat([img_feat, field_feat, coord_feat], dim=1))
+        # fused_feat = self.fusion(torch.concat([img_feat, field_feat, coord_feat], dim=1))
+        fused_feat = self.fusion(torch.concat([img_feat, coord_feat], dim=1))
         return fused_feat.permute(0,2,1)

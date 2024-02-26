@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from pytorch3d.transforms.rotation_conversions import axis_angle_to_matrix
-from src.callbacks.loss.loss_field import dist_loss, dist_loss_kp, computed_dist_loss
+from src.callbacks.loss.loss_field import dist_loss, dist_loss_kp, computed_dist_loss, normal_loss, field_loss
 
 from src.utils.loss_modules import (
     compute_contact_devi_loss,
@@ -194,8 +194,11 @@ def compute_loss(pred, gt, meta_info, args):
     # }
 
     #field loss
-    loss_dict = dist_loss_kp(loss_dict, pred, gt, weight=100.0)
+    # loss_dict = field_loss(loss_dict, pred, gt, meta_info, weight=100.0)
+    loss_dict = dist_loss(loss_dict, pred, gt, meta_info, weight=1.0)
+    loss_dict = normal_loss(loss_dict, pred, gt, meta_info, weight=1.0)
+    # loss_dict = dist_loss_kp(loss_dict, pred, gt, weight=100.0)
     #computed field loss
-    loss_dict = computed_dist_loss(loss_dict, pred, gt, weight=0.0)
+    # loss_dict = computed_dist_loss(loss_dict, pred, gt, weight=0.0)
 
     return loss_dict

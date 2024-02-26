@@ -7,4 +7,6 @@ __pycache__
 /.cometml-runs
 /bash/account.txt
 /tensorboard
-nohup.out
+/bash
+*.out
+.nfs0000000001e834f100000383

@@ -39,19 +39,19 @@ class ArcticSF(nn.Module):
         self.hand_joint_num = 21
         self.object_joint_num = 32
 
-        self.point_backbone_h = PointNetfeat(
-            input_dim=1,
-            shallow_dim=pt_shallow_dim,
-            mid_dim=pt_mid_dim,
-            out_dim=pt_out_dim,
-        )
+        # self.point_backbone_h = PointNetfeat(
+        #     input_dim=1,
+        #     shallow_dim=pt_shallow_dim,
+        #     mid_dim=pt_mid_dim,
+        #     out_dim=pt_out_dim,
+        # )
 
-        self.point_backbone_o = PointNetfeat(
-            input_dim=2,
-            shallow_dim=pt_shallow_dim,
-            mid_dim=pt_mid_dim,
-            out_dim=pt_out_dim,
-        )
+        # self.point_backbone_o = PointNetfeat(
+        #     input_dim=2,
+        #     shallow_dim=pt_shallow_dim,
+        #     mid_dim=pt_mid_dim,
+        #     out_dim=pt_out_dim,
+        # )
 
         self.head_r = HandHMR(feat_dim, is_rhand=True, n_iter=3)
         self.head_l = HandHMR(feat_dim, is_rhand=False, n_iter=3)
@@ -60,24 +60,28 @@ class ArcticSF(nn.Module):
         self.img_encoder = Residual(feat_dim, 256)
         self.regressor = Regressor(focal_length=focal_length, img_res=img_res)
         self.refinement1 = Refinement(feat_dim, self.hand_joint_num, self.object_joint_num, hand_specs, obj_specs)
-        # self.refinement2 = Refinement(256, self.hand_joint_num, self.object_joint_num, hand_specs, obj_specs)
-        # self.enhancement = Enhancement(self.hand_joint_num, self.object_joint_num)
-        # self.enhance_layer = Residual(64 * (self.hand_joint_num * 2 + self.object_joint_num)+256, 256)
 
-        self.mode = "train"
+        # self.mode = "train"
         self.img_res = img_res
         self.focal_length = focal_length
     
     def forward(self, features, meta_info, field):
         # images = inputs["img"]#64,3,224,224
 
-        field_r = field["dist.ro.kp"][:,None,:]#64,1,21
-        field_l = field["dist.lo.kp"][:,None,:]#64,1,21
-        field_o = torch.stack([field["dist.or.kp"], field["dist.ol.kp"]], dim=1)#64,2,32
+        # field_r = field["dist.ro"][:,:,None]#64,1,21
+        # field_l = field["dist.lo"][:,:,None]#64,1,21
 
-        field_feat_r= self.point_backbone_h(field_r)[0]#64,128,21
-        field_feat_l= self.point_backbone_h(field_l)[0]#64,128,21
-        field_feat_o= self.point_backbone_o(field_o)[0]#64,128,32
+        field_r = field["dist.ro"][:,:,None]*field["direc.ro"]#64,1,21
+        field_l = field["dist.lo"][:,:,None]*field["direc.lo"]#64,1,21
+
+        # field_r = field["field.ro"]
+        # field_l = field["field.lo"]
+
+        # field_o = torch.stack([field["dist.or.kp"], field["dist.ol.kp"]], dim=1)#64,2,32
+
+        # field_feat_r= self.point_backbone_h(field_r)[0]#64,128,21
+        # field_feat_l= self.point_backbone_h(field_l)[0]#64,128,21
+        # field_feat_o= self.point_backbone_o(field_o)[0]#64,128,32
 
         #backbone
         # features = self.backbone(images)#64,2048,7,7 for resnet, 64,197,768 for ViT
@@ -95,28 +99,15 @@ class ArcticSF(nn.Module):
         mano_output_r, mano_output_l, arti_output = self.regressor(hmr_output_r, hmr_output_l, hmr_output_o, meta_info)
 
         # second stage, refinement
-        features = self.img_encoder(features)
+        img_feat_low = self.img_encoder(features)
 
-        refine_mano_output_r, refine_mano_output_l, refine_mano_output_o, img_feat_r, img_feat_l, img_feat_o, img_feat_fusion\
-              = self.refinement1(features, field_feat_r, field_feat_l, field_feat_o, \
+        refine_mano_output_r, refine_mano_output_l, refine_mano_output_o \
+              = self.refinement1(img_feat_low, features, field_r, field_l, None, \
                                 mano_output_r, mano_output_l, arti_output, \
                                     hmr_output_r, hmr_output_l, hmr_output_o)  
         #second stage, regressor
         mano_output_r, mano_output_l, arti_output = self.regressor(refine_mano_output_r, \
                                                                    refine_mano_output_l, refine_mano_output_o, meta_info)
-        
-        # #enhancement
-        # # img_feat = self.enhancement(mano_output_r, mano_output_l, arti_output, img_feat_r, img_feat_l, img_feat_o)
-        # # img_feat = torch.cat((img_feat_fusion, img_feat), dim=1)
-
-        # #third stage, refinement
-        # refine_mano_output_r, refine_mano_output_l, refine_mano_output_o, img_feat_r, img_feat_l, img_feat_o, img_feat_fusion\
-        #       = self.refinement2(img_feat_fusion, field_feat_r, field_feat_l, field_feat_o, \
-        #                         mano_output_r, mano_output_l, arti_output, \
-        #                             hmr_output_r, hmr_output_l, hmr_output_o)
-        # #third stage, regressor
-        # mano_output_r, mano_output_l, arti_output = self.regressor(refine_mano_output_r, \
-        #                                                            refine_mano_output_l, refine_mano_output_o, meta_info)
 
         #add init camera parameters
         root_r_init = hmr_output_r["cam_t.wp.init"]

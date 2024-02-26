@@ -10,7 +10,7 @@ class InterHandWrapper(GenericWrapper):
     def __init__(self, args):
         super().__init__(args)
         self.model = InterHand(
-            backbone="vit",
+            backbone="resnet50",
             args=args
         )
         self.process_fn = process_data
@@ -21,14 +21,13 @@ class InterHandWrapper(GenericWrapper):
             "mpjpe.ra",
             "aae",
             "success_rate",
-            "avg_err_kp_field",
-            "avg_err_field_computed",
+            "avg_err_field",
         ]
 
-        self.vis_fns = [visualize_arctic.visualize_all, visualize_field.visualize_all]
+        self.vis_fns = [visualize_arctic.visualize_all]
 
         self.num_vis_train = 1
-        self.num_vis_val = 1
+        self.num_vis_val = 5
 
     def inference(self, inputs, meta_info):
         return super().inference_pose(inputs, meta_info)

@@ -8,6 +8,8 @@ import torch.nn.parallel
 import torch.utils.data
 from torch.autograd import Variable
 
+
+from src.nets.pointnet_utils import PointNetSetAbstraction
 """
 Source: https://github.com/fxia22/pointnet.pytorch/blob/f0c2430b0b1529e3f76fb5d6cd6ca14be763d975/pointnet/model.py
 """
@@ -135,3 +137,44 @@ class PointNetfeat(nn.Module):
         else:
             x = x.view(-1, self.out_dim, 1).repeat(1, 1, n_pts)
             return torch.cat([x, pointfeat], 1), trans, trans_feat
+
+class PointNet2(nn.Module):
+    def __init__(self, in_channel, normal_channel=True):
+        super(PointNet2, self).__init__()
+        self.normal_channel = normal_channel
+        self.sa1 = PointNetSetAbstraction(npoint=778, radius=0.2, nsample=16, in_channel=in_channel, mlp=[32, 32, 64], group_all=False)
+        self.sa2 = PointNetSetAbstraction(npoint=388, radius=0.4, nsample=32, in_channel=64 + 3, mlp=[64, 64, 128], group_all=False)
+        self.sa3 = PointNetSetAbstraction(npoint=194, radius=0.8, nsample=64, in_channel=128 + 3, mlp=[128, 128, 256], group_all=False)
+        # self.sa4 = PointNetSetAbstraction(npoint=None, radius=None, nsample=None, in_channel=256 + 3, mlp=[256, 256, 256], group_all=True)
+        self.sa4 = PointNetSetAbstraction(npoint=None, radius=None, nsample=None, in_channel=256 + 3, mlp=[256, 256, 512], group_all=True)
+    def forward(self, xyz):
+        B, _, _ = xyz.shape#16,6,778
+        if self.normal_channel:
+            norm = xyz[:, 3:, :]
+            xyz = xyz[:, :3, :]
+        else:
+            norm = None
+        l1_xyz, l1_points = self.sa1(xyz, norm)#16,3,512,16,128,512
+        l2_xyz, l2_points = self.sa2(l1_xyz, l1_points)#16,3,128,16,256,128
+        l3_xyz, l3_points = self.sa3(l2_xyz, l2_points)#16,1024,1
+        l4_xyz, l4_points = self.sa4(l3_xyz, l3_points)#16,1024,1
+        # x = l4_points.view(B, 256)
+        x = l4_points.view(B, 512)
+        return x
+    
+class ReconDecoder(nn.Module):
+    def __init__(self, input_dim = 256+3):
+        super(ReconDecoder, self).__init__()
+        self.sa1 = PointNetfeat(input_dim=input_dim, shallow_dim = 64, mid_dim = 64, out_dim = 64)
+        self.sa2 = PointNetfeat(input_dim=128, shallow_dim = 32, mid_dim = 32, out_dim = 32)
+        self.sa3 = PointNetfeat(input_dim=64, shallow_dim = 16, mid_dim = 16, out_dim = 16)
+        self.sa4 = PointNetfeat(input_dim=32, shallow_dim = 8, mid_dim = 8, out_dim = 8)
+        self.head = nn.Linear(16,3)
+
+    def forward(self, x):
+        x = self.sa1(x)[0]
+        x = self.sa2(x)[0]
+        x = self.sa3(x)[0]
+        x = self.sa4(x)[0].permute(0,2,1)
+        x = self.head(x)
+        return x

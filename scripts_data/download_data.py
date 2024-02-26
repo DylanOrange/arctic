@@ -81,13 +81,15 @@ def main():
         "--url_file",
         type=str,
         help="Path to file containing list of URLs",
-        required=True,
+        # required=True,
+        default = './bash/assets/urls/cropped_images.txt'
     )
     parser.add_argument(
         "--out_folder",
         type=str,
         help="Path to folder to store downloaded files",
-        required=True,
+        # required=True,
+        default= ' /data/dylu/data/arctic/downloads/data/cropped_images_zips'
     )
     parser.add_argument(
         "--dry_run",

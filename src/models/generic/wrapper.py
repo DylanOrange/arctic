@@ -37,7 +37,7 @@ class GenericWrapper(AbstractPL):
         self.add_module("mano_l", self.mano_l)
         self.renderer = Renderer(img_res=args.img_res)
         self.object_sampler = np.load(
-            "../original_packages/arctic/data/arctic_data/data/meta/downsamplers.npy", allow_pickle=True
+            "/data/dylu/data/arctic/arctic_data/data/meta/downsamplers.npy", allow_pickle=True
         ).item()
 
     def set_flags(self, mode):
@@ -103,7 +103,8 @@ class GenericWrapper(AbstractPL):
     def forward(self, inputs, targets, meta_info, mode):
         # torch.cuda.synchronize()
         # start_forward = time.time()
-    
+        current_device = targets['mano.pose.r'].device
+        self.model.arctic_model.regressor.arti_head.object_tensors.to(current_device)
         models = {
             "mano_r": self.mano_r,
             "mano_l": self.mano_l,
@@ -138,7 +139,7 @@ class GenericWrapper(AbstractPL):
         # torch.cuda.synchronize()
         # start_model = time.time()
 
-        pred = self.model(inputs, meta_info)
+        pred = self.model(inputs, targets, meta_info)
 
         # torch.cuda.synchronize()
         # end_model = time.time()

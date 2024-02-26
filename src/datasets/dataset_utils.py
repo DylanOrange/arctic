@@ -104,7 +104,7 @@ def get_num_images(split, num_images):
         return num_images
 
     if split == "smalltrain":
-        return 250000
+        return 100000
 
     if split == "tinytrain":
         return 12000
@@ -116,7 +116,7 @@ def get_num_images(split, num_images):
         return 12000
 
     if split == "tinyval":
-        return 1000
+        return 10000
 
     if split == "minival":
         return 80

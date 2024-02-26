@@ -125,10 +125,9 @@ class ArcticDataset(Dataset):
             if speedup:
                 imgname = imgname.replace("/images/", "/cropped_images/")
             imgname = imgname.replace(
-                "./arctic_data/", "../original_packages/arctic/data/arctic_data/data/"
+                "./arctic_data/", "/data/dylu/data/arctic/arctic_data/data/"
             ).replace("/data/data/", "/data/")
             # start_image = time.time()
-
             cv_img, img_status = read_img(imgname, (2800, 2000, 3))
 
             # end_image = time.time()
@@ -326,7 +325,7 @@ class ArcticDataset(Dataset):
 
         short_split = split.replace("mini", "").replace("tiny", "").replace("small", "")
         data_p = op.join(
-            f"../original_packages/arctic/data/arctic_data/data/splits/{args.setup}_{short_split}.npy"
+            f"/data/dylu/data/arctic/arctic_data/data/splits/{args.setup}_{short_split}.npy"
         )
         logger.info(f"Loading {data_p}")
         data = np.load(data_p, allow_pickle=True).item()
@@ -335,7 +334,7 @@ class ArcticDataset(Dataset):
         self.data = data["data_dict"]
         self.imgnames = data["imgnames"]
 
-        with open("../original_packages/arctic/data/arctic_data/data/meta/misc.json", "r") as f:
+        with open("/data/dylu/data/arctic/arctic_data/data/meta/misc.json", "r") as f:
             misc = json.load(f)
 
         # unpack
@@ -412,8 +411,8 @@ class ArcticDataset(Dataset):
             if speedup:
                 imgname = imgname.replace("/images/", "/cropped_images/")
             imgname = imgname.replace(
-                "/arctic_data/", "/data/arctic_data/data/"
-            ).replace("/data/data/", "/data/")
+                "./arctic_data/data/", "/data/dylu/data/arctic/arctic_data/data/"
+            )
             cv_img, img_status = read_img(imgname, (2800, 2000, 3))
         else:
             norm_img = None

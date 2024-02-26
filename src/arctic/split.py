@@ -27,7 +27,7 @@ def get_selected_seqs(setup, split):
 
     # load seq names from json
     with open(
-        op.join("../original_packages/arctic/data/arctic_data/data/splits_json/", f"protocol_{setup}.json"), "r"
+        op.join("/data/dylu/data/arctic/arctic_data/data/splits_json/", f"protocol_{setup}.json"), "r"
     ) as f:
         splits = json.load(f)
 
@@ -78,7 +78,7 @@ def get_selected_views(setup, split):
 def glob_fnames(num_frames, seq, chosen_views):
     # construct paths to images
     sid, seq_name = seq.split("/")
-    folder_p = op.join(f"../original_packages/arctic/data/arctic_data/data/images/{sid}/{seq_name}/")
+    folder_p = op.join(f"/data/dylu/data/arctic/arctic_data/data/images/{sid}/{seq_name}/")
 
     # ignore first 10 and last 10 frames as images may be entirely black
     glob_ps = [

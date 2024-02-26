@@ -79,7 +79,6 @@ def init_experiment(args):
                 args.comet_key = args_disk["comet_key"]
 
     create_files(args)
-
     project_name = args.project
     disabled = args.mute
     comet_url = args["comet_key"] if "comet_key" in args.keys() else None

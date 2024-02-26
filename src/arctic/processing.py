@@ -18,7 +18,7 @@ import common.thing as thing
 from common.ld_utils import cat_dl
 from src.arctic.preprocess_dataset import construct_loader
 
-with open("../original_packages/arctic/data/arctic_data/data/meta/misc.json", "r") as f:
+with open("/data/dylu/data/arctic/arctic_data/data/meta/misc.json", "r") as f:
     misc = json.load(f)
 
 IGNORE_KEYS = ["v_len", "bottom_anchor", "f", "f_len", "parts_ids", "mask", "diameter"]

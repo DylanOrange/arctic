@@ -1,5 +1,5 @@
 import time
-
+import os
 import numpy as np
 import pytorch_lightning as pl
 import torch
@@ -46,7 +46,6 @@ class AbstractPL(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         # torch.cuda.synchronize()
         # start_step = time.time()
-
         self.set_training_flags()
         if len(self.vis_train_batches) < self.num_vis_train:
             self.vis_train_batches.append(batch)
@@ -140,11 +139,17 @@ class AbstractPL(pl.LightningModule):
             )
             self.log(self.tracked_metric, result[self.tracked_metric])
 
-        if not self.args.no_vis:
-            print("Rendering train images")
-            self.visualize_batches(self.vis_train_batches, "_train", False)
+        if not self.args.no_vis and self.current_epoch >10 and torch.cuda.current_device() == 0:
+            # print("Rendering train images")
+            # self.visualize_batches(self.vis_train_batches, "_train", False)
             print("Rendering val images")
-            self.visualize_batches(self.vis_val_batches, "_val", False)
+            self.visualize_batches([self.vis_val_batches[-1]], "_val", False)
+
+        if torch.cuda.current_device() != 0 and self.current_epoch >10:
+            ckpt_name = f"epoch={self.current_epoch}.ckpt"
+            ckpt_path = os.path.join(self.args.log_dir, 'checkpoints', ckpt_name)
+            torch.save(self.model.state_dict(), ckpt_path)
+            print(f"save checkpoint to {ckpt_path}")
 
         if "test" in postfix:
             return (
