@@ -12,9 +12,9 @@ class FieldSFWrapper(GenericWrapper):
         self.model = FieldSF("resnet50", args.focal_length, args.img_res)
         self.process_fn = process_data
         self.loss_fn = compute_loss
-        self.metric_dict = ["avg_err_kp_field"]
+        self.metric_dict = ["avg_err_field"]
 
-        self.vis_fns = [visualize_all]
+        self.vis_fns = None
         self.num_vis_train = 1
         self.num_vis_val = 1
 

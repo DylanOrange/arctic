@@ -5,6 +5,7 @@ from src.callbacks.loss.loss_field import dist_loss, dist_loss_kp, computed_dist
 
 from src.utils.loss_modules import (
     compute_contact_devi_loss,
+    compute_kp_contact_devi_loss,
     hand_kp3d_loss,
     joints_loss,
     mano_loss,
@@ -150,6 +151,8 @@ def compute_loss(pred, gt, meta_info, args):
     )
 
     cd_ro, cd_lo = compute_contact_devi_loss(pred, gt)
+    cd_ro_kp, cd_lo_kp = compute_kp_contact_devi_loss(pred, gt)
+
     loss_dict = {
         "loss/mano/cam_t/r": (loss_cam_t_r, 1.0),
         "loss/mano/cam_t/l": (loss_cam_t_l, 1.0),
@@ -162,6 +165,7 @@ def compute_loss(pred, gt, meta_info, args):
         "loss/mano/kp3d/l": (loss_keypoints_3d_l, 5.0),
         "loss/mano/pose/l": (loss_regr_pose_l, 10.0),
         "loss/cd": (cd_ro + cd_lo, 1.0),
+        "loss/cd_kp": (cd_ro_kp + cd_lo_kp, 0.5),
         "loss/mano/transl/l": (loss_transl_l, 1.0),
         "loss/mano/beta/l": (loss_regr_betas_l, 0.001),
         "loss/object/kp2d": (loss_keypoints_o, 1.0),
@@ -171,6 +175,40 @@ def compute_loss(pred, gt, meta_info, args):
         "loss/object/transl": (loss_transl_o, 1.0),
     }
 
+    # ro_cloest_kp = pred_kp3d_o.gather(dim=1, index = gt['idx.ro.kp'].unsqueeze(-1).expand(-1, -1, 3))#B,21,3
+    # lo_cloest_kp = pred_kp3d_o.gather(dim=1, index = gt['idx.lo.kp'].unsqueeze(-1).expand(-1, -1, 3))#B,21,3
+    # or_cloest_kp = pred_joints_r.gather(dim=1, index = gt['idx.or.kp'].unsqueeze(-1).expand(-1, -1, 3))#B,32,3
+    # ol_cloest_kp = pred_joints_l.gather(dim=1, index = gt['idx.ol.kp'].unsqueeze(-1).expand(-1, -1, 3))#B,32,3
+
+    # dist_ro = torch.linalg.norm(ro_cloest_kp-pred_joints_r,dim=2,keepdim =False)
+    # dist_lo = torch.linalg.norm(lo_cloest_kp-pred_joints_l,dim=2,keepdim =False)
+    # dist_or = torch.linalg.norm(or_cloest_kp-pred_kp3d_o,dim=2,keepdim =False)
+    # dist_ol = torch.linalg.norm(ol_cloest_kp-pred_kp3d_o,dim=2,keepdim =False)
+
+    # loss_ro = mse_loss(dist_ro, gt["dist.ro.kp"])*gt["is_valid"][:, None]
+    # loss_lo = mse_loss(dist_lo, gt["dist.lo.kp"])*gt["is_valid"][:, None]
+    # loss_or = mse_loss(dist_or, gt["dist.or.kp"])*gt["is_valid"][:, None]
+    # loss_ol = mse_loss(dist_ol, gt["dist.ol.kp"])*gt["is_valid"][:, None]
+
+    # bnd_idx_ro = gt["dist.ro.kp"] > 0.1
+    # bnd_idx_lo = gt["dist.lo.kp"] > 0.1
+    # bnd_idx_or = gt["dist.or.kp"] > 0.1
+    # bnd_idx_ol = gt["dist.ol.kp"] > 0.1
+
+    # # loss_ro[bnd_idx_ro] *= 0.0
+    # # loss_lo[bnd_idx_lo] *= 0.0
+    # # loss_or[bnd_idx_or] *= 0.0
+    # # loss_ol[bnd_idx_ol] *= 0.0
+
+    # loss_dict[f"loss/dist/ro"] = (loss_ro[~bnd_idx_ro].mean(), 0.0)
+    # loss_dict[f"loss/dist/lo"] = (loss_lo[~bnd_idx_lo].mean(), 0.0)
+    # loss_dict[f"loss/dist/or"] = (loss_or[~bnd_idx_or].mean(), 0.0)
+    # loss_dict[f"loss/dist/ol"] = (loss_ol[~bnd_idx_ol].mean(), 0.0)
+
+    # # loss_dict[f"loss/dist/ro"] = (loss_ro.mean(), 25.0)
+    # # loss_dict[f"loss/dist/lo"] = (loss_lo.mean(), 25.0)
+    # # loss_dict[f"loss/dist/or"] = (loss_or.mean(), 25.0)
+    # # loss_dict[f"loss/dist/ol"] = (loss_ol.mean(), 25.0)
 
     # loss_dict = {
     #     "loss/mano/cam_t/r": (loss_cam_t_r, 0.01),
@@ -194,10 +232,11 @@ def compute_loss(pred, gt, meta_info, args):
     # }
 
     #field loss
-    # loss_dict = field_loss(loss_dict, pred, gt, meta_info, weight=100.0)
-    loss_dict = dist_loss(loss_dict, pred, gt, meta_info, weight=1.0)
-    loss_dict = normal_loss(loss_dict, pred, gt, meta_info, weight=1.0)
-    # loss_dict = dist_loss_kp(loss_dict, pred, gt, weight=100.0)
+    # # loss_dict = field_loss(loss_dict, pred, gt, meta_info, weight=1.0)
+    # loss_dict = dist_loss(loss_dict, pred, gt, meta_info, weight=10.0)
+    # # # loss_dict = dist_loss_kp(loss_dict, pred, gt, weight=1.0)
+    # loss_dict = normal_loss(loss_dict, pred, gt, meta_info, weight=1.0)
+    # loss_dict = dist_loss_kp(loss_dict, pred, gt, weight=1.0)
     #computed field loss
     # loss_dict = computed_dist_loss(loss_dict, pred, gt, weight=0.0)
 

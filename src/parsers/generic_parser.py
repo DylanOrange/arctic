@@ -9,6 +9,18 @@ def add_generic_args(parser):
     parser.add_argument(
         "--load_ckpt", type=str, default=None, help="Load checkpoints from PL format"
     )
+    
+    # parser.add_argument(
+    #     "--load_ckpt", type=str, default='logs/8b169b7df/checkpoints/last.ckpt', help="Load checkpoints from PL format"
+    # )
+    #arctic baseline
+    # parser.add_argument(
+    #     "--load_ckpt", type=str, default='logs/6922f08ca/checkpoints/last.ckpt', help="Load checkpoints from PL format"
+    # )
+
+    # parser.add_argument(
+    #     "--load_ckpt", type=str, default='logs/06d47aa5c/checkpoints/last.ckpt', help="Load checkpoints from PL format"
+    # )   
     parser.add_argument(
         "--infer_ckpt", type=str, default=None, help="This is for the interface"
     )
@@ -35,10 +47,18 @@ def add_generic_args(parser):
     parser.add_argument(
         "--valsplit",
         type=str,
-        default='tinyval',
+        default='smallval',
         choices=[None, "val", "smallval", "tinyval", "minival"],
         help="Amount to subsample validation set.",
     )
+    parser.add_argument(
+        "--testsplit",
+        type=str,
+        default='minitest',
+        choices=[None, "test", "smalltest", "tinytest", "minitest"],
+        help="Amount to subsample validation set.",
+    )
+
     parser.add_argument(
         "--run_on",
         type=str,

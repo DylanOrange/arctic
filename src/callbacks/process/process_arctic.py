@@ -26,6 +26,10 @@ def process_data(
         v0_o_full,
         mask,
         cams,
+        idx_r,
+        idx_l,
+        idx_o
+
     ) = generic.prepare_templates(
         batch_size,
         models["mano_r"],
@@ -46,6 +50,43 @@ def process_data(
     meta_info["v0.o.full"] = v0_o_full#64,3997,3
     meta_info["mask"] = mask
 
+    meta_info['nearest_r'] = idx_r
+    meta_info['nearest_l'] = idx_l
+    meta_info['nearest_o'] = idx_o
+
+    subject_mask = torch.zeros(batch_size, device = inputs['img'].device)
+
+    for idx, imgname in enumerate(meta_info['imgname']):
+        sid, _, _, _ = imgname.split("/")[-4:]
+        if sid == 's03':
+            subject_mask[idx] = 1
+    subject_mask = subject_mask[:,None]
+
+    # sid, _, _, _ = meta_info['imgname'].split("/")[-4:]
+    # if sid == 's03':
+        
+    #     out = models["arti_head"].object_tensors.forward(
+    #         angles=targets["object.radian"].view(-1, 1),
+    #         global_orient=targets["object.rot"].view(-1, 3),
+    #         transl=None,
+    #         query_names=meta_info["query_names"],
+    #     )
+
+    #     diameters = out["diameter"]
+    #     parts_idx = out["parts_ids"]
+    #     meta_info["part_ids"] = parts_idx
+    #     meta_info["diameter"] = diameters
+
+    #     # GT vertices relative to right hand root
+    #     targets["object.v.cam"] = out["v"] + targets["object.cam_t"][:, None, :]
+    #     targets["object.v_len"] = out["v_len"]
+
+    #     targets["object.f"] = out["f"]
+    #     targets["object.f_len"] = out["f_len"]
+
+    #     targets = generic.prepare_interfield(targets, field_max)
+    
+    # else:
     #to find the index of subsampled points in the full point cloud
     N_joint = 21
     # ridx = torch.argmin(torch.cdist(v0_r[:,N_joint:], v0_r_full[:,N_joint:], p=2), dim=2)#64,195
@@ -146,10 +187,10 @@ def process_data(
     gt_cam_t_r = gt_root_cam_patch_r - gt_root_cano_r
     gt_cam_t_l = gt_root_cam_patch_l - gt_root_cano_l
     gt_cam_t_o = gt_transl
-
-    targets["mano.cam_t.r"] = gt_cam_t_r
-    targets["mano.cam_t.l"] = gt_cam_t_l
-    targets["object.cam_t"] = gt_cam_t_o
+    
+    targets.overwrite("mano.cam_t.r", (1-subject_mask)*gt_cam_t_r + subject_mask*targets["mano.cam_t.r"])
+    targets.overwrite("mano.cam_t.l", (1-subject_mask)*gt_cam_t_l + subject_mask*targets["mano.cam_t.l"])
+    targets.overwrite("object.cam_t", (1-subject_mask)*gt_cam_t_o + subject_mask*targets["object.cam_t"])
 
     avg_focal_length = (K[:, 0, 0] + K[:, 1, 1]) / 2.0
     gt_cam_t_wp_r = camera.perspective_to_weak_perspective_torch(
@@ -164,19 +205,20 @@ def process_data(
         gt_cam_t_o, avg_focal_length, img_res
     )
 
-    targets["mano.cam_t.wp.r"] = gt_cam_t_wp_r
-    targets["mano.cam_t.wp.l"] = gt_cam_t_wp_l
-    targets["object.cam_t.wp"] = gt_cam_t_wp_o
+    targets.overwrite("mano.cam_t.wp.r", (1-subject_mask)*gt_cam_t_wp_r + subject_mask*targets["mano.cam_t.wp.r"])
+    targets.overwrite("mano.cam_t.wp.l", (1-subject_mask)*gt_cam_t_wp_l + subject_mask*targets["mano.cam_t.wp.l"])
+    targets.overwrite("object.cam_t.wp", (1-subject_mask)*gt_cam_t_wp_o + subject_mask*targets["object.cam_t.wp"])
 
     # cam coord of patch
-    targets["object.cam_t.kp3d.b"] = gt_transl
+    targets["object.cam_t.kp3d.b"] = (1-subject_mask)*gt_transl + subject_mask*targets["object.cam_t"]
 
-    targets["mano.v3d.cam.r"] = gt_vertices_r
-    targets["mano.v3d.cam.l"] = gt_vertices_l
-    targets["mano.j3d.cam.r"] = gt_model_joints_r
-    targets["mano.j3d.cam.l"] = gt_model_joints_l
-    targets["object.kp3d.cam"] = gt_kp3d_o#keypoints:32
-    targets["object.bbox3d.cam"] = gt_bbox3d_o
+    subject_mask = subject_mask[:,:,None]
+    targets.overwrite("mano.v3d.cam.r", (1-subject_mask)*gt_vertices_r + subject_mask*targets["mano.v3d.cam.r"])
+    targets.overwrite("mano.v3d.cam.l", (1-subject_mask)*gt_vertices_l + subject_mask*targets["mano.v3d.cam.l"])
+    targets.overwrite("mano.j3d.cam.r", (1-subject_mask)*gt_model_joints_r + subject_mask*targets["mano.j3d.cam.r"])
+    targets.overwrite("mano.j3d.cam.l", (1-subject_mask)*gt_model_joints_l + subject_mask*targets["mano.j3d.cam.l"])
+    targets.overwrite("object.kp3d.cam", (1-subject_mask)*gt_kp3d_o + subject_mask*targets["object.kp3d.cam"])
+    targets.overwrite("object.bbox3d.cam", (1-subject_mask)*gt_bbox3d_o + subject_mask*targets["object.bbox3d.cam"])
 
     out = models["arti_head"].object_tensors.forward(
         angles=targets["object.radian"].view(-1, 1),
@@ -186,16 +228,19 @@ def process_data(
     )
 
     # GT vertices relative to right hand root
-    targets["object.v.cam"] = out["v"] + gt_transl[:, None, :]#vertics:3997
+    targets["object.v.cam"] = out["v"] + targets["object.cam_t"][:, None, :]#vertics:3997
     targets["object.v_len"] = out["v_len"]#number of vertics the object in every batch have
 
     targets["object.f"] = out["f"]
     targets["object.f_len"] = out["f_len"]
 
-    targets = generic.prepare_kp_interfield(targets, max_dist = args.max_dist)
-    targets = generic.prepare_interfield(targets, max_dist = args.max_dist)
-    targets = generic.prepare_norm_interfield(targets, max_dist = args.max_dist)
-    targets = generic.prepare_normal(targets)
+    targets = generic.prepare_kp_interfield(targets, max_dist = float("inf"))
+    # meta_info = generic.prepare_nearest_vertex(targets, meta_info)
+    targets = generic.prepare_interfield(targets, max_dist = float("inf"))
+    # targets = generic.prepare_normal(targets)
+    # targets = generic.prepare_interfield(targets, max_dist = 0.5)
+    # targets = generic.prepare_norm_interfield(targets, max_dist = args.max_dist)
+    # targets = generic.prepare_kp_normal(targets)
 
     # dist_or, _ = inter.compute_dist_obj_to_mano(
     #     targets["mano.v3d.cam.r"],

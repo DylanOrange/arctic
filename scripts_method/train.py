@@ -1,7 +1,7 @@
 import comet_ml
 import os
 import os.path as op
-os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 import sys
 from pprint import pformat
 
@@ -56,7 +56,7 @@ def main(args):
         accumulate_grad_batches=args.acc_grad,
         devices=1,
         accelerator="gpu",
-        # strategy="ddp_find_unused_parameters_true",
+        strategy="ddp_find_unused_parameters_true",
         logger=None,
         min_epochs=args.num_epoch,
         max_epochs=args.num_epoch,

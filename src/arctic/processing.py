@@ -18,7 +18,7 @@ import common.thing as thing
 from common.ld_utils import cat_dl
 from src.arctic.preprocess_dataset import construct_loader
 
-with open("/data/dylu/data/arctic/arctic_data/data/meta/misc.json", "r") as f:
+with open("/ssd/dylu/data/arctic/arctic_data/data/meta/misc.json", "r") as f:
     misc = json.load(f)
 
 IGNORE_KEYS = ["v_len", "bottom_anchor", "f", "f_len", "parts_ids", "mask", "diameter"]
@@ -481,9 +481,9 @@ def process_seq(task, export_verts=False):
 
         sid, seqname = mano_p.split("/")[-2:]
         if export_verts:
-            out_p = f"./outputs/processed_verts/seqs/{sid}/{seqname}"
+            out_p = f"/ssd/dylu/data/arctic/arctic_data/data/outputs/processed_verts/seqs/{sid}/{seqname}"
         else:
-            out_p = f"./outputs/processed/seqs/{sid}/{seqname}"
+            out_p = f"/ssd/dylu/data/arctic/arctic_data/data/outputs/processed/seqs/{sid}/{seqname}"
         out_p = out_p.replace(".mano", "").replace("/annot", "")
         out_folder = op.dirname(out_p)
 

@@ -220,10 +220,10 @@ def batch_solve_rigid_tf(A, B):
 
     # special reflection case
     neg_idx = np.linalg.det(R) < 0
-    if neg_idx.sum() > 0:
-        raise Exception(
-            f"some rotation matrices are not orthogonal; make sure implementation is correct for such case: {neg_idx}"
-        )
+    # if neg_idx.sum() > 0:
+    #     raise Exception(
+    #         f"some rotation matrices are not orthogonal; make sure implementation is correct for such case: {neg_idx}"
+    #     )
     Vt[neg_idx, 2, :] *= -1
     R[neg_idx, :, :] = np.matmul(
         permute_np(Vt[neg_idx], (0, 2, 1)), permute_np(U[neg_idx], (0, 2, 1))

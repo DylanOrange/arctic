@@ -8,5 +8,7 @@ __pycache__
 /bash/account.txt
 /tensorboard
 /bash
+/server_logs
 *.out
 .nfs0000000001e834f100000383
+/trash

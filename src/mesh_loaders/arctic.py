@@ -35,7 +35,7 @@ def construct_object_meshes(cam_data, obj_name, layers, view_idx, distort):
         view_idx = 9
     v3d_o = cam_data["verts.object"][:, view_idx]
     f3d_o = Mesh(
-        filename=f"/data/dylu/data/arctic/arctic_data/data/meta/object_vtemplates/{obj_name}/mesh.obj"
+        filename=f"/ssd/dylu/data/arctic/arctic_data/data/meta/object_vtemplates/{obj_name}/mesh.obj"
     ).faces
 
     obj = {
@@ -105,7 +105,7 @@ def construct_meshes(
     vidx = np.arange(num_frames)
     image_idx = vidx + subject_meta[subject]["ioi_offset"]
     imgnames = [
-        f"/data/dylu/data/arctic/arctic_data/data/images/{subject}/{seq_name}/{view_idx}/{idx:05d}.jpg"
+        f"/ssd/dylu/data/arctic/arctic_data/data/images/{subject}/{seq_name}/{view_idx}/{idx:05d}.jpg"
         for idx in image_idx
     ]
 

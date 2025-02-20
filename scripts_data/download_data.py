@@ -89,7 +89,7 @@ def main():
         type=str,
         help="Path to folder to store downloaded files",
         # required=True,
-        default= ' /data/dylu/data/arctic/downloads/data/cropped_images_zips'
+        default= ' /ssd/dylu/data/arctic/downloads/data/cropped_images_zips'
     )
     parser.add_argument(
         "--dry_run",

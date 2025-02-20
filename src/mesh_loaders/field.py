@@ -54,7 +54,7 @@ def construct_meshes(exp_folder, seq_name, flag, mode, side_angle=None, zoom_out
     # load object faces
     obj_name = seq_name.split("_")[1]
     f3d_o = Mesh(
-        filename=f"/data/dylu/data/arctic/arctic_data/data/meta/object_vtemplates/{obj_name}/mesh.obj"
+        filename=f"/ssd/dylu/data/arctic/arctic_data/data/meta/object_vtemplates/{obj_name}/mesh.obj"
     ).f
 
     # only show predicted dist < 0.1

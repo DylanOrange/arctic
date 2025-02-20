@@ -23,16 +23,6 @@ class RegressHead(nn.Module):
     def __init__(self, input_dim):
         super().__init__()
 
-        # self.network = nn.Sequential(
-        #     nn.Conv1d(input_dim, 512, 1),
-        #     nn.BatchNorm1d(512),
-        #     nn.ReLU(),
-        #     nn.Conv1d(512, 128, 1),
-        #     nn.BatchNorm1d(128),
-        #     nn.ReLU(),
-        #     nn.Conv1d(128, 1, 1),
-        # )
-
         self.network = nn.Sequential(
             nn.Conv1d(input_dim, 512, 1),
             nn.BatchNorm1d(512),
@@ -47,9 +37,26 @@ class RegressHead(nn.Module):
         dist = self.network(x).permute(0, 2, 1)
         return dist
 
+class ClassHead(nn.Module):
+    def __init__(self, input_dim, num_classes):
+        super().__init__()
+
+        self.network = nn.Sequential(
+            nn.Conv1d(input_dim, 512, 1),
+            nn.BatchNorm1d(512),
+            nn.ReLU(),
+            nn.Conv1d(512, 128, 1),
+            nn.BatchNorm1d(128),
+            nn.ReLU(),
+            nn.Conv1d(128, num_classes, 1),
+        )
+    def forward(self, x):
+        # dist = self.network(x).permute(0, 2, 1)[:, :, 0]
+        dist = self.network(x).permute(0, 2, 1)
+        return dist
 
 class FieldSF(nn.Module):
-    def __init__(self, backbone, focal_length, img_res):
+    def __init__(self, backbone):
         super().__init__()
         # if backbone == "resnet18":
         #     from src.nets.backbone.resnet import resnet18 as resnet
@@ -81,10 +88,17 @@ class FieldSF(nn.Module):
         )
 
         pts_dim = pt_shallow_dim + pt_out_dim
-        self.dist_head_or = RegressHead(pts_dim)
-        self.dist_head_ol = RegressHead(pts_dim)
+
         self.dist_head_ro = RegressHead(pts_dim)
         self.dist_head_lo = RegressHead(pts_dim)
+        self.dist_head_or = RegressHead(pts_dim)
+        self.dist_head_ol = RegressHead(pts_dim)
+
+        self.class_head_ro = ClassHead(pts_dim, 21)
+        self.class_head_rl = ClassHead(pts_dim, 21)
+        self.class_head_or = ClassHead(pts_dim, 32)
+        self.class_head_ol = ClassHead(pts_dim, 32)
+
         self.avgpool = nn.AdaptiveAvgPool2d(1)
 
         self.num_v_sub = 195  # mano subsampled
@@ -109,19 +123,36 @@ class FieldSF(nn.Module):
 
         return dist_ro, dist_lo, dist_or, dist_ol
     
-    def forward(self, img_feat, meta_info):
+    def forward(self, img_feat, meta_info, result, mesh_sampler):
         # images = inputs["img"]#64,3,224,224
+
+        # vertex_r = result["mano_output_r"]["mano.v3d.cam.r"]
+        # vertex_l = result["mano_output_l"]["mano.v3d.cam.l"]
+        # vertex_o = result["arti_output"]["object.v.cam"]
+
+        # sub_o_idx = meta_info['object_v_sub_idx'].unsqueeze(-1).repeat(1, 1, 3)
+
+        # sub_vertex_r = mesh_sampler.downsample(vertex_r,is_right=True)
+        # sub_vertex_l = mesh_sampler.downsample(vertex_l,is_right=False)
+        # sub_vertex_o = vertex_o.gather(dim=1, index = sub_o_idx)
+
+        # pred_points_all = torch.cat((sub_vertex_r, sub_vertex_l, sub_vertex_o), dim=1)#64,3,74  
+        # pred_points_all = pred_points_all.permute(0,2,1)   
 
         #change to keypoint estimation
         points_r = meta_info["v0.r"].permute(0, 2, 1)[:, :, 21:]#64,3,21, exclude keyjoints
         points_l = meta_info["v0.l"].permute(0, 2, 1)[:, :, 21:]#64,3,21
         points_o = meta_info["v0.o"].permute(0, 2, 1)#64,3,32
+    
+        # points_r = meta_info["v0.r"].permute(0, 2, 1)[:, :, :21]#64,3,21, exclude keyjoints
+        # points_l = meta_info["v0.l"].permute(0, 2, 1)[:, :, :21]#64,3,21
+        # points_o = meta_info["v0.o.kp"].permute(0, 2, 1)#64,3,32
+
         points_all = torch.cat((points_r, points_l, points_o), dim=2)#64,3,74
 
         # #get single image feature vector
         # img_feat = self.backbone(images)#64,2048,7,7
         img_feat = self.avgpool(img_feat).view(img_feat.shape[0], -1)#64,2048
-        pred_vec = img_feat.clone()
 
         #downsize image feature vector
         img_feat = self.down(img_feat)#64,512
@@ -135,8 +166,9 @@ class FieldSF(nn.Module):
         )#64,512,990
 
         #concat points coordinates with image vector
+        # pts_all_feat = torch.cat((points_all, pred_points_all, img_feat_all), dim=1)#64,515,990
         pts_all_feat = torch.cat((points_all, img_feat_all), dim=1)#64,515,990
-        dist_ro, dist_lo, dist_or, dist_ol = self._decode(pts_all_feat)
+        vector_ro, vector_lo, vector_or, vector_ol = self._decode(pts_all_feat)
 
         # #upsampling
         # dist_ro = self.upsampling_r((dist_ro)[:, :, None])[:, :, 0]#64,778
@@ -149,12 +181,11 @@ class FieldSF(nn.Module):
         # out["dist.lo"] = dist_lo#778
         # out["dist.or"] = dist_or#4000
         # out["dist.ol"] = dist_ol#4000
-        # out["feat_vec"] = pred_vec
 
-        vector_ro = self.upsampling_r(dist_ro)#64,778
-        vector_lo = self.upsampling_l(dist_lo)#64,778
-        vector_or = self.upsampling_o(dist_or)#64,4000
-        vector_ol = self.upsampling_o(dist_ol)#64,4000
+        vector_ro = self.upsampling_r(vector_ro)#64,778
+        vector_lo = self.upsampling_l(vector_lo)#64,778
+        vector_or = self.upsampling_o(vector_or)#64,4000
+        vector_ol = self.upsampling_o(vector_ol)#64,4000
         
         dist_ro = torch.linalg.norm(vector_ro,dim=2,keepdim =True)
         dist_lo = torch.linalg.norm(vector_lo,dim=2,keepdim =True)
@@ -177,12 +208,54 @@ class FieldSF(nn.Module):
         out["direc.lo"] = direction_lo#778
         out["direc.or"] = direction_or#4000
         out["direc.ol"] = direction_ol#4000
-        
-        # out["feat_vec"] = pred_vec
 
+        # # out = xdict()
         # out["field.ro"] = vector_ro#778
         # out["field.lo"] = vector_lo#778
         # out["field.or"] = vector_or#4000
         # out["field.ol"] = vector_ol#4000
 
         return out
+
+    # def forward(self, inputs, targets, meta_info, models):
+    #     images = inputs["img"]#64,3,224,224
+    #     img_feat = self.backbone(images)
+
+    #     #change to keypoint estimation
+    #     points_r = meta_info["v0.r"].permute(0, 2, 1)[:, :, 21:]#64,3,21, exclude keyjoints
+    #     points_l = meta_info["v0.l"].permute(0, 2, 1)[:, :, 21:]#64,3,21
+    #     points_o = meta_info["v0.o"].permute(0, 2, 1)#64,3,32
+    #     points_all = torch.cat((points_r, points_l, points_o), dim=2)#64,3,74
+
+    #     # #get single image feature vector
+    #     # img_feat = self.backbone(images)#64,2048,7,7
+    #     img_feat = self.avgpool(img_feat).view(img_feat.shape[0], -1)#64,2048
+
+    #     #downsize image feature vector
+    #     img_feat = self.down(img_feat)#64,512
+
+    #     self.num_mano_pts = points_r.shape[2]
+    #     self.num_object_pts = points_o.shape[2]
+
+    #     #repeat image feature vector
+    #     img_feat_all = img_feat[:, :, None].repeat(
+    #         1, 1, self.num_mano_pts * 2 + self.num_object_pts
+    #     )#64,512,990
+
+    #     #concat points coordinates with image vector
+    #     pts_all_feat = torch.cat((points_all, img_feat_all), dim=1)#64,515,990
+    #     dist_ro, dist_lo, dist_or, dist_ol = self._decode(pts_all_feat)
+
+    #     #upsampling
+    #     dist_ro = self.upsampling_r((dist_ro)[:, :, None])[:, :, 0]#64,778
+    #     dist_lo = self.upsampling_l((dist_lo)[:, :, None])[:, :, 0]#64,778
+    #     dist_or = self.upsampling_o((dist_or)[:, :, None])[:, :, 0]#64,4000
+    #     dist_ol = self.upsampling_o((dist_ol)[:, :, None])[:, :, 0]#64,4000
+
+    #     out = xdict()
+    #     out["dist.ro"] = dist_ro#778
+    #     out["dist.lo"] = dist_lo#778
+    #     out["dist.or"] = dist_or#4000
+    #     out["dist.ol"] = dist_ol#4000
+
+    #     return out

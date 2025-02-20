@@ -44,7 +44,7 @@ def create_windows(imgnames, window_size):
 class TempoInferenceDataset(ArcticDataset):
     def _load_data(self, args, split):
         # load image features
-        data_p = f"/data/dylu/data/arctic/arctic_data/data/feat/{args.img_feat_version}/{args.setup}_{split}.pt"
+        data_p = f"/ssd/dylu/data/arctic/arctic_data/data/feat/{args.img_feat_version}/{args.setup}_{split}.pt"
         assert op.exists(
             data_p
         ), f"Not found {data_p}; NOTE: only use ArcticDataset for single-frame model to evaluate and extract."

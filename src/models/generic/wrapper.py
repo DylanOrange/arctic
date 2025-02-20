@@ -37,7 +37,7 @@ class GenericWrapper(AbstractPL):
         self.add_module("mano_l", self.mano_l)
         self.renderer = Renderer(img_res=args.img_res)
         self.object_sampler = np.load(
-            "/data/dylu/data/arctic/arctic_data/data/meta/downsamplers.npy", allow_pickle=True
+            "/ssd/dylu/data/arctic/arctic_data/data/meta/downsamplers.npy", allow_pickle=True
         ).item()
 
     def set_flags(self, mode):
@@ -48,21 +48,13 @@ class GenericWrapper(AbstractPL):
             self.eval()
 
     def inference_pose(self, inputs, meta_info):
-        pred = self.model(inputs, meta_info)
-        mydict = xdict()
-        mydict.merge(xdict(inputs).prefix("inputs."))
-        mydict.merge(pred.prefix("pred."))
-        mydict.merge(xdict(meta_info).prefix("meta_info."))
-        mydict = mydict.detach()
-        return mydict
-
-    def inference_field(self, inputs, meta_info):
-        meta_info = xdict(meta_info)
+        current_device = inputs['img'].device
+        self.model.pose_regressor.arti_head.object_tensors.to(current_device)
 
         models = {
             "mano_r": self.mano_r,
             "mano_l": self.mano_l,
-            "arti_head": self.model.arti_head,
+            "arti_head": self.model.pose_regressor.arti_head,
             "mesh_sampler": MANODecimator(),
             "object_sampler": self.object_sampler,
         }
@@ -70,15 +62,19 @@ class GenericWrapper(AbstractPL):
         batch_size = meta_info["intrinsics"].shape[0]
 
         (
-            v0_r,
-            v0_l,
-            v0_o,
-            pidx,
-            v0_r_full,
-            v0_l_full,
-            v0_o_full,
-            mask,
-            cams,
+        v0_r,
+        v0_l,
+        v0_o,
+        v0_o_kp,
+        pidx,
+        v0_r_full,
+        v0_l_full,
+        v0_full,
+        mask,
+        cams,
+        idx_r,
+        idx_l,
+        idx_o
         ) = generic.prepare_templates(
             batch_size,
             models["mano_r"],
@@ -91,8 +87,67 @@ class GenericWrapper(AbstractPL):
         meta_info["v0.r"] = v0_r
         meta_info["v0.l"] = v0_l
         meta_info["v0.o"] = v0_o
+        meta_info['nearest_r'] = idx_r
+        meta_info['nearest_l'] = idx_l
+        meta_info['nearest_o'] = idx_o
 
-        pred = self.model(inputs, meta_info)
+
+        pred = self.model(inputs, meta_info, models)
+        mydict = xdict()
+        mydict.merge(xdict(inputs).prefix("inputs."))
+        mydict.merge(pred.prefix("pred."))
+        mydict.merge(xdict(meta_info).prefix("meta_info."))
+        mydict = mydict.detach()
+        return mydict
+
+    def inference_field(self, inputs, meta_info):
+
+        current_device = inputs['img'].device
+        self.model.pose_regressor.arti_head.object_tensors.to(current_device)
+    
+        meta_info = xdict(meta_info)
+
+        models = {
+            "mano_r": self.mano_r,
+            "mano_l": self.mano_l,
+            "arti_head": self.model.pose_regressor.arti_head,
+            "mesh_sampler": MANODecimator(),
+            "object_sampler": self.object_sampler,
+        }
+
+        batch_size = meta_info["intrinsics"].shape[0]
+
+        (
+        v0_r,
+        v0_l,
+        v0_o,
+        v0_o_kp,
+        pidx,
+        v0_r_full,
+        v0_l_full,
+        v0_full,
+        mask,
+        cams,
+        idx_r,
+        idx_l,
+        idx_o
+        ) = generic.prepare_templates(
+            batch_size,
+            models["mano_r"],
+            models["mano_l"],
+            models["mesh_sampler"],
+            models["arti_head"],
+            meta_info["query_names"],
+        )
+
+        meta_info["v0.r"] = v0_r
+        meta_info["v0.l"] = v0_l
+        meta_info["v0.o"] = v0_o
+        meta_info['nearest_r'] = idx_r
+        meta_info['nearest_l'] = idx_l
+        meta_info['nearest_o'] = idx_o
+
+        pred = self.model(inputs, meta_info, models)
         mydict = xdict()
         mydict.merge(xdict(inputs).prefix("inputs."))
         mydict.merge(pred.prefix("pred."))
@@ -104,11 +159,12 @@ class GenericWrapper(AbstractPL):
         # torch.cuda.synchronize()
         # start_forward = time.time()
         current_device = targets['mano.pose.r'].device
-        self.model.arctic_model.regressor.arti_head.object_tensors.to(current_device)
+        self.model.pose_regressor.arti_head.object_tensors.to(current_device)
+        # self.model.arti_head.object_tensors.to(current_device)
         models = {
             "mano_r": self.mano_r,
             "mano_l": self.mano_l,
-            "arti_head": self.model.arctic_model.regressor.arti_head,
+            "arti_head": self.model.pose_regressor.arti_head,
             "mesh_sampler": MANODecimator(),
             "object_sampler": self.object_sampler,
         }
@@ -139,7 +195,7 @@ class GenericWrapper(AbstractPL):
         # torch.cuda.synchronize()
         # start_model = time.time()
 
-        pred = self.model(inputs, targets, meta_info)
+        pred = self.model(inputs, meta_info, models)
 
         # torch.cuda.synchronize()
         # end_model = time.time()

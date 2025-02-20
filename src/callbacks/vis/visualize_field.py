@@ -42,17 +42,14 @@ def render_result(
     r_valid,
     l_valid,
     K,
-    img,
-    ridx, 
-    lidx,
-    oidx
+    img
 ):
     img = img.permute(1, 2, 0).cpu().numpy()
     mesh_top = Mesh(
         v=thing.thing2np(vertices_t),
         f=thing.thing2np(faces_t),
         vc=vc_t,
-        vertex_ids=oidx,
+        # vertex_ids=oidx,
     )
 
     # render only valid meshes
@@ -63,13 +60,13 @@ def render_result(
             v=vertices_r,
             f=mano_faces_r,
             vc=vc_r,
-            vertex_ids=ridx,
+            # vertex_ids=ridx,
         )
         meshes.append(mesh_r)
         mesh_names.append("right")
 
     if l_valid:
-        mesh_l = Mesh(v=vertices_l, f=mano_faces_l, vc=vc_l, vertex_ids=lidx,)
+        mesh_l = Mesh(v=vertices_l, f=mano_faces_l, vc=vc_l)
 
         meshes.append(mesh_l)
         mesh_names.append("left")
@@ -144,34 +141,34 @@ def visualize_all(_vis_dict, max_examples, renderer, postfix, no_tqdm):
         vis_dict["targets.object.v_len"],
     )
 
-    ridx = torch.argmin(torch.cdist(gt_kp_r_cam, gt_vertices_r_cam, p=2), dim=2)#64,21
-    lidx = torch.argmin(torch.cdist(gt_kp_l_cam, gt_vertices_l_cam, p=2), dim=2)#64,21
+    # ridx = torch.argmin(torch.cdist(gt_kp_r_cam, gt_vertices_r_cam, p=2), dim=2)#64,21
+    # lidx = torch.argmin(torch.cdist(gt_kp_l_cam, gt_vertices_l_cam, p=2), dim=2)#64,21
 
     # valid flag
     right_valid = vis_dict["targets.right_valid"].bool()
     left_valid = vis_dict["targets.left_valid"].bool()
 
     # # unpack dist
-    # gt_dist_r = vis_dict["targets.dist.ro"]
-    # gt_dist_l = vis_dict["targets.dist.lo"]
-    # gt_dist_or = vis_dict["targets.dist.or"]
-    # gt_dist_ol = vis_dict["targets.dist.ol"]
+    gt_dist_r = vis_dict["targets.dist.ro"]
+    gt_dist_l = vis_dict["targets.dist.lo"]
+    gt_dist_or = vis_dict["targets.dist.or"]
+    gt_dist_ol = vis_dict["targets.dist.ol"]
 
-    # pred_dist_r = vis_dict["pred.dist.ro"]
-    # pred_dist_l = vis_dict["pred.dist.lo"]
-    # pred_dist_or = vis_dict["pred.dist.or"]
-    # pred_dist_ol = vis_dict["pred.dist.ol"]
+    pred_dist_r = vis_dict["pred.dist.ro"]
+    pred_dist_l = vis_dict["pred.dist.lo"]
+    pred_dist_or = vis_dict["pred.dist.or"]
+    pred_dist_ol = vis_dict["pred.dist.ol"]
 
     # unpack kp dist
-    gt_dist_r_kp = vis_dict["targets.dist.ro.kp"]
-    gt_dist_l_kp = vis_dict["targets.dist.lo.kp"]
-    gt_dist_or_kp = vis_dict["targets.dist.or.kp"]
-    gt_dist_ol_kp = vis_dict["targets.dist.ol.kp"]
+    # gt_dist_r_kp = vis_dict["targets.dist.ro.kp"]
+    # gt_dist_l_kp = vis_dict["targets.dist.lo.kp"]
+    # gt_dist_or_kp = vis_dict["targets.dist.or.kp"]
+    # gt_dist_ol_kp = vis_dict["targets.dist.ol.kp"]
 
-    pred_dist_r_kp = vis_dict["pred.dist.ro.kp"]
-    pred_dist_l_kp = vis_dict["pred.dist.lo.kp"]
-    pred_dist_or_kp = vis_dict["pred.dist.or.kp"]
-    pred_dist_ol_kp = vis_dict["pred.dist.ol.kp"]
+    # pred_dist_r_kp = vis_dict["pred.dist.ro.kp"]
+    # pred_dist_l_kp = vis_dict["pred.dist.lo.kp"]
+    # pred_dist_or_kp = vis_dict["pred.dist.or.kp"]
+    # pred_dist_ol_kp = vis_dict["pred.dist.ol.kp"]
 
 
     im_list = []
@@ -186,17 +183,17 @@ def visualize_all(_vis_dict, max_examples, renderer, postfix, no_tqdm):
 
         # dist to vertex color
         max_dist = 0.10
-        gt_vc_r = dist2vc_hands(gt_dist_r_kp[idx], max_dist)
-        gt_vc_l = dist2vc_hands(gt_dist_l_kp[idx], max_dist)
-        gt_vc_or = dist2vc_obj(gt_dist_or_kp[idx][:top_len], max_dist)
-        gt_vc_ol = dist2vc_obj(gt_dist_ol_kp[idx][:top_len], max_dist)
+        gt_vc_r = dist2vc_hands(gt_dist_r[idx], max_dist)
+        gt_vc_l = dist2vc_hands(gt_dist_l[idx], max_dist)
+        gt_vc_or = dist2vc_obj(gt_dist_or[idx][:top_len], max_dist)
+        gt_vc_ol = dist2vc_obj(gt_dist_ol[idx][:top_len], max_dist)
 
-        pred_vc_r = dist2vc_hands(pred_dist_r_kp[idx], max_dist)
-        pred_vc_l = dist2vc_hands(pred_dist_l_kp[idx], max_dist)
-        pred_vc_or = dist2vc_obj(pred_dist_or_kp[idx][:top_len], max_dist)
-        pred_vc_ol = dist2vc_obj(pred_dist_ol_kp[idx][:top_len], max_dist)
+        pred_vc_r = dist2vc_hands(pred_dist_r[idx], max_dist)
+        pred_vc_l = dist2vc_hands(pred_dist_l[idx], max_dist)
+        pred_vc_or = dist2vc_obj(pred_dist_or[idx][:top_len], max_dist)
+        pred_vc_ol = dist2vc_obj(pred_dist_ol[idx][:top_len], max_dist)
 
-        oidx = torch.argmin(torch.cdist(gt_obj_kp_cam[idx], gt_obj_vtop_cam[idx], p=2), dim=1)#32
+        # oidx = torch.argmin(torch.cdist(gt_obj_kp_cam[idx], gt_obj_vtop_cam[idx], p=2), dim=1)#32
 
         # render GT
         image_list = []
@@ -216,10 +213,10 @@ def visualize_all(_vis_dict, max_examples, renderer, postfix, no_tqdm):
             r_valid,
             False,
             K_i,
-            images[idx],
-            ridx[idx], 
-            lidx[idx],
-            oidx
+            images[idx]
+            # ridx[idx], 
+            # lidx[idx],
+            # oidx
         )
         image_gt_l = render_result(
             renderer,
@@ -235,10 +232,10 @@ def visualize_all(_vis_dict, max_examples, renderer, postfix, no_tqdm):
             False,
             l_valid,
             K_i,
-            images[idx],
-            ridx[idx], 
-            lidx[idx],
-            oidx
+            images[idx]
+            # ridx[idx], 
+            # lidx[idx],
+            # oidx
         )
 
         # prediction
@@ -256,10 +253,10 @@ def visualize_all(_vis_dict, max_examples, renderer, postfix, no_tqdm):
             r_valid,
             False,
             K_i,
-            images[idx],
-            ridx[idx], 
-            lidx[idx],
-            oidx
+            images[idx]
+            # ridx[idx], 
+            # lidx[idx],
+            # oidx
         )
         image_pred_l = render_result(
             renderer,
@@ -275,10 +272,10 @@ def visualize_all(_vis_dict, max_examples, renderer, postfix, no_tqdm):
             False,
             l_valid,
             K_i,
-            images[idx],
-            ridx[idx], 
-            lidx[idx],
-            oidx
+            images[idx]
+            # ridx[idx], 
+            # lidx[idx],
+            # oidx
         )
 
         image_list.append(image_pred_r)

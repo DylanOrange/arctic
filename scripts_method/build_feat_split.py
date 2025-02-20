@@ -45,7 +45,7 @@ def main(split, protocol, eval_p):
 
     load_ps = glob(op.join(eval_p, "*"))
     with open(
-        f"/data/dylu/data/arctic/arctic_data/data/splits_json/protocol_{protocol}.json", "r"
+        f"/ssd/dylu/data/arctic/arctic_data/data/splits_json/protocol_{protocol}.json", "r"
     ) as f:
         seq_names = json.load(f)[short_split]
 
@@ -99,7 +99,7 @@ def main(split, protocol, eval_p):
         check_imgname_match(imgnames_list, protocol, split)
 
     out = {"imgnames": imgnames_list, "feat_vec": vecs_list}
-    out_folder = "/data/dylu/data/arctic/arctic_data/data/feat"
+    out_folder = "/ssd/dylu/data/arctic/arctic_data/data/feat"
     out_p = op.join(out_folder, exp_key, f"{protocol}_{split}.pt")
     assert not op.exists(out_p), f"{out_p} already exists"
     os.makedirs(op.dirname(out_p), exist_ok=True)

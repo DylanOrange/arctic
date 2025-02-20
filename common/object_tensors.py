@@ -159,7 +159,7 @@ def construct_obj(object_model_p):
     json_p = op.join(object_model_p, "object_params.json")
     obj_name = op.basename(object_model_p)
 
-    top_sub_p = f"/data/dylu/data/arctic/arctic_data/data/meta/object_vtemplates/{obj_name}/top_keypoints_300.json"
+    top_sub_p = f"/ssd/dylu/data/arctic/arctic_data/data/meta/object_vtemplates/{obj_name}/top_keypoints_300.json"
     bottom_sub_p = top_sub_p.replace("top_", "bottom_")
     with open(top_sub_p, "r") as f:
         sub_top = np.array(json.load(f)["keypoints"])
@@ -177,7 +177,7 @@ def construct_obj(object_model_p):
     mesh_v = mesh.vertices
 
     mesh_f = torch.LongTensor(mesh.faces)
-    vidx = np.argmin(cdist(sub_v, mesh_v, metric="euclidean"), axis=1)
+    vidx = np.argmin(cdist(sub_v, mesh_v, metric="euclidean"), axis=1)#600,int64
     parts_sub = parts[vidx]
 
     vsk = object_model_p.split("/")[-1]
@@ -199,11 +199,12 @@ def construct_obj(object_model_p):
     obj.obj_name = "".join([i for i in vsk if not i.isdigit()])
     obj.v = torch.FloatTensor(mesh_v)
     obj.v_sub = torch.FloatTensor(sub_v)
+    obj.v_sub_idx = torch.LongTensor(vidx)
     obj.f = torch.LongTensor(mesh_f)
     obj.parts = torch.LongTensor(parts)
     obj.parts_sub = torch.LongTensor(parts_sub)
 
-    with open("/data/dylu/data/arctic/arctic_data/data/meta/object_meta.json", "r") as f:
+    with open("/ssd/dylu/data/arctic/arctic_data/data/meta/object_meta.json", "r") as f:
         object_meta = json.load(f)
     obj.diameter = torch.FloatTensor(np.array(object_meta[obj.obj_name]["diameter"]))
     obj.bbox_top = torch.FloatTensor(bbox_top)
@@ -218,7 +219,7 @@ def construct_obj(object_model_p):
 def construct_obj_tensors(object_names):
     obj_list = []
     for k in object_names:
-        object_model_p = f"/data/dylu/data/arctic/arctic_data/data/meta/object_vtemplates/%s" % (k)
+        object_model_p = f"/ssd/dylu/data/arctic/arctic_data/data/meta/object_vtemplates/%s" % (k)
         obj = construct_obj(object_model_p)
         obj_list.append(obj)
 
@@ -230,6 +231,7 @@ def construct_obj_tensors(object_names):
     kp_bottom_list = []
     v_list = []
     v_sub_list = []
+    v_sub_idx_list = []
     f_list = []
     parts_list = []
     parts_sub_list = []
@@ -237,6 +239,7 @@ def construct_obj_tensors(object_names):
     for obj in obj_list:
         v_list.append(obj.v)
         v_sub_list.append(obj.v_sub)
+        v_sub_idx_list.append(obj.v_sub_idx)
         f_list.append(obj.f)
 
         # root_list.append(obj.root)
@@ -263,6 +266,8 @@ def construct_obj_tensors(object_names):
     v_sub_list = torch.stack(v_sub_list, dim=0)
     diameter_list = torch.stack(diameter_list, dim=0)
 
+    v_sub_idx_list = torch.stack(v_sub_idx_list, dim=0)
+
     f_list, f_len_list = pad_tensor_list(f_list)
 
     bbox_top_list = torch.stack(bbox_top_list, dim=0)
@@ -274,6 +279,7 @@ def construct_obj_tensors(object_names):
     obj_tensors["names"] = object_names
     obj_tensors["parts_ids"] = p_list
     obj_tensors["parts_sub_ids"] = ps_list
+    obj_tensors["v_sub_idx"] = v_sub_idx_list
 
     obj_tensors["v"] = v_list.float() / 1000
     obj_tensors["v_sub"] = v_sub_list.float() / 1000

@@ -2,6 +2,7 @@ import torch
 
 import src.utils.interfield as inter
 from src.nets.pointnet_utils import normalize_point_cloud_torch
+from pytorch3d.ops import knn_points
 
 def prepare_mano_template(batch_size, mano_layer, mesh_sampler, is_right):
     root_idx = 0
@@ -20,6 +21,8 @@ def prepare_mano_template(batch_size, mano_layer, mesh_sampler, is_right):
     template_vertices = out.vertices
     template_vertices_sub = mesh_sampler.downsample(template_vertices, is_right)
 
+    _, idx, _ = knn_points(template_3d_joints, template_vertices, None, None, K=1, return_nn=True)
+    
     # normalize
     template_root = template_3d_joints[:, root_idx, :]
     template_3d_joints = template_3d_joints - template_root[:, None, :]
@@ -32,7 +35,7 @@ def prepare_mano_template(batch_size, mano_layer, mesh_sampler, is_right):
 
     ref_vertices_full = torch.cat([template_3d_joints, template_vertices], dim=1)
     ref_vertices_full = ref_vertices_full.expand(batch_size, -1, -1)
-    return ref_vertices, ref_vertices_full
+    return ref_vertices, ref_vertices_full, idx
 
 
 def prepare_templates(
@@ -44,14 +47,14 @@ def prepare_templates(
     query_names,
 ):
     #joints(21)+sub_vertics(195), joints(21)+vertics(778)
-    v0_r, v0_r_full = prepare_mano_template(
+    v0_r, v0_r_full, idx_r = prepare_mano_template(
         batch_size, mano_r, mesh_sampler, is_right=True
     )
-    v0_l, v0_l_full = prepare_mano_template(
+    v0_l, v0_l_full, idx_l = prepare_mano_template(
         batch_size, mano_l, mesh_sampler, is_right=False
     )
     #sub_vertics(600) + vertics(4000)
-    (v0_o, pidx, v0_full, mask, v0_o_kp) = prepare_object_template(
+    (v0_o, pidx, v0_full, mask, v0_o_kp, idx_o) = prepare_object_template(
         batch_size,
         arti_head.object_tensors,
         query_names,
@@ -73,6 +76,9 @@ def prepare_templates(
         v0_full,
         mask,
         cams,
+        idx_r,
+        idx_l,
+        idx_o
     )
 
 
@@ -88,7 +94,6 @@ def prepare_object_template(batch_size, object_tensors, query_names):
     ref_vertices = out["v_sub"]
     parts_idx = out["parts_ids"]
 
-
     mask = out["mask"]
 
     ref_mean = ref_vertices.mean(dim=1)[:, None, :]
@@ -101,7 +106,29 @@ def prepare_object_template(batch_size, object_tensors, query_names):
     ref_kp3d = out["kp3d"]
     ref_kp3d -= ref_mean
 
-    return (ref_vertices, parts_idx, v_template, mask, ref_kp3d)
+    _, idx_o, _ = knn_points(ref_kp3d, v_template, None, out["v_len"], K=1, return_nn=True)
+
+    return (ref_vertices, parts_idx, v_template, mask, ref_kp3d, idx_o)
+
+def prepare_nearest_vertex(targets, meta_info):
+
+    _, idx_r, _ = knn_points(
+        targets["mano.j3d.cam.r"], targets["mano.v3d.cam.r"], None, None, K=1, return_nn=True
+    )
+
+    _, idx_l, _ = knn_points(
+        targets["mano.j3d.cam.l"], targets["mano.v3d.cam.l"], None, None, K=1, return_nn=True
+    )
+
+    _, idx_o, _ = knn_points(
+        targets["object.kp3d.cam"], targets["object.v.cam"], None, targets["object.v_len"], K=1, return_nn=True
+    )
+
+    meta_info['nearest_r'] = idx_r
+    meta_info['nearest_l'] = idx_l
+    meta_info['nearest_o'] = idx_o
+
+    return meta_info
 
 
 def prepare_interfield(targets, max_dist):
@@ -265,10 +292,53 @@ def prepare_normal(targets):
     or_cloest_kp = targets["mano.v3d.cam.r"].gather(dim=1, index = or_cloest_kp_idx)
     ol_cloest_kp = targets["mano.v3d.cam.l"].gather(dim=1, index = ol_cloest_kp_idx)
         
-    vector_ro = targets["mano.v3d.cam.r"]-ro_cloest_kp
-    vector_lo = targets["mano.v3d.cam.l"]-lo_cloest_kp
-    vector_or = targets["object.v.cam"]-or_cloest_kp
-    vector_ol = targets["object.v.cam"]-ol_cloest_kp
+    vector_ro = ro_cloest_kp-targets["mano.v3d.cam.r"]
+    vector_lo = lo_cloest_kp-targets["mano.v3d.cam.l"]
+    vector_or = or_cloest_kp-targets["object.v.cam"]
+    vector_ol = ol_cloest_kp-targets["object.v.cam"]
+
+    dist_ro = torch.linalg.norm(vector_ro,dim=2,keepdim =True)
+    dist_lo = torch.linalg.norm(vector_lo,dim=2,keepdim =True)
+    dist_or = torch.linalg.norm(vector_or,dim=2,keepdim =True)
+    dist_ol = torch.linalg.norm(vector_ol,dim=2,keepdim =True)
+    
+    direction_ro = vector_ro/dist_ro
+    direction_lo = vector_lo/dist_lo
+    direction_or = vector_or/dist_or
+    direction_ol = vector_ol/dist_ol
+    
+    targets["direc.ro"] = direction_ro#778
+    targets["direc.lo"] = direction_lo#778
+    targets["direc.or"] = direction_or#4000
+    targets["direc.ol"] = direction_ol#4000
+    
+    targets["field.ro"] = vector_ro#778
+    targets["field.lo"] = vector_lo#778
+    targets["field.or"] = vector_or#4000
+    targets["field.ol"] = vector_ol#4000
+
+    return targets
+
+def prepare_kp_normal(targets):
+    
+    ro_cloest_kp_idx = targets["idx.ro.kp"].unsqueeze(-1).repeat(1, 1, 3)
+    lo_cloest_kp_idx = targets["idx.lo.kp"].unsqueeze(-1).repeat(1, 1, 3)
+    # ro_cloest_kp = targets["object.v.cam"].gather(dim=1, index = ro_cloest_kp_idx)
+    # lo_cloest_kp = targets["object.v.cam"].gather(dim=1, index = lo_cloest_kp_idx)
+
+    ro_cloest_kp = targets["object.kp3d.cam"].gather(dim=1, index = ro_cloest_kp_idx)
+    lo_cloest_kp = targets["object.kp3d.cam"].gather(dim=1, index = lo_cloest_kp_idx)
+
+    or_cloest_kp_idx = targets['idx.or.kp'].unsqueeze(-1).repeat(1, 1, 3)
+    ol_cloest_kp_idx = targets['idx.ol.kp'].unsqueeze(-1).repeat(1, 1, 3)
+
+    or_cloest_kp = targets["mano.j3d.cam.r"].gather(dim=1, index = or_cloest_kp_idx)
+    ol_cloest_kp = targets["mano.j3d.cam.l"].gather(dim=1, index = ol_cloest_kp_idx)
+        
+    vector_ro = targets["mano.j3d.cam.r"]-ro_cloest_kp
+    vector_lo = targets["mano.j3d.cam.l"]-lo_cloest_kp
+    vector_or = targets["object.kp3d.cam"]-or_cloest_kp
+    vector_ol = targets["object.kp3d.cam"]-ol_cloest_kp
 
     dist_ro = torch.linalg.norm(vector_ro,dim=2,keepdim =True)
     dist_lo = torch.linalg.norm(vector_lo,dim=2,keepdim =True)

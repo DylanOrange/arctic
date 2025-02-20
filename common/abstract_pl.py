@@ -139,7 +139,7 @@ class AbstractPL(pl.LightningModule):
             )
             self.log(self.tracked_metric, result[self.tracked_metric])
 
-        if not self.args.no_vis and self.current_epoch >10 and torch.cuda.current_device() == 0:
+        if not self.args.no_vis and self.current_epoch == 0 and torch.cuda.current_device() == 0:
             # print("Rendering train images")
             # self.visualize_batches(self.vis_train_batches, "_train", False)
             print("Rendering val images")
@@ -147,8 +147,14 @@ class AbstractPL(pl.LightningModule):
 
         if torch.cuda.current_device() != 0 and self.current_epoch >10:
             ckpt_name = f"epoch={self.current_epoch}.ckpt"
+            mano_r_name = f"manor={self.current_epoch}.ckpt"
+            mano_l_name = f"manol={self.current_epoch}.ckpt"
             ckpt_path = os.path.join(self.args.log_dir, 'checkpoints', ckpt_name)
+            mano_r_path = os.path.join(self.args.log_dir, 'checkpoints', mano_r_name)
+            mano_l_path = os.path.join(self.args.log_dir, 'checkpoints', mano_l_name)
             torch.save(self.model.state_dict(), ckpt_path)
+            torch.save(self.mano_r, mano_r_path)
+            torch.save(self.mano_l, mano_l_path)
             print(f"save checkpoint to {ckpt_path}")
 
         if "test" in postfix:

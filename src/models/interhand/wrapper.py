@@ -21,7 +21,8 @@ class InterHandWrapper(GenericWrapper):
             "mpjpe.ra",
             "aae",
             "success_rate",
-            "avg_err_field",
+            # "avg_err_field",
+            # "avg_err_kp_field"
         ]
 
         self.vis_fns = [visualize_arctic.visualize_all]

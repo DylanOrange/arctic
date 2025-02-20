@@ -8,7 +8,7 @@ import torch.nn.parallel
 import torch.utils.data
 from torch.autograd import Variable
 
-
+from pointnet2_ops.pointnet2_modules import PointnetFPModule, PointnetSAModule
 from src.nets.pointnet_utils import PointNetSetAbstraction
 """
 Source: https://github.com/fxia22/pointnet.pytorch/blob/f0c2430b0b1529e3f76fb5d6cd6ca14be763d975/pointnet/model.py
@@ -138,30 +138,169 @@ class PointNetfeat(nn.Module):
             x = x.view(-1, self.out_dim, 1).repeat(1, 1, n_pts)
             return torch.cat([x, pointfeat], 1), trans, trans_feat
 
+# class PointNet2(nn.Module):
+#     def __init__(self, in_channel, normal_channel=True):
+#         super(PointNet2, self).__init__()
+#         self.normal_channel = normal_channel
+#         # self.sa1 = PointnetSAModule(npoint=778, radius=0.2, nsample=16, mlp=[in_channel,32,32,64])
+#         # self.sa2 = PointnetSAModule(npoint=388, radius=0.4, nsample=32, mlp=[64,64,64,128])
+#         # self.sa3 = PointnetSAModule(npoint=194, radius=0.8, nsample=64, mlp=[128,128,128,256])
+#         # self.sa4 = PointnetSAModule(mlp=[256,256,256,512])
+
+#         # self.sa1 = PointnetSAModule(npoint=512, radius=0.2, nsample=12, mlp=[in_channel,2048,2048,1024])
+#         # self.sa2 = PointnetSAModule(npoint=128, radius=0.4, nsample=12, mlp=[1024,1024,1024,512])
+#         # self.sa3 = PointnetSAModule(npoint=32, radius=0.8, nsample=12, mlp=[512,512,512,1024])
+#         # self.sa4 = PointnetSAModule(mlp=[1024,1024,1024,2048])
+
+#         self.sa1 = PointnetSAModule(npoint=512, radius=0.2, nsample=12, mlp=[in_channel,256,256,320])
+#         self.sa2 = PointnetSAModule(npoint=128, radius=0.4, nsample=12, mlp=[320,320,320,384])
+#         self.sa3 = PointnetSAModule(npoint=32, radius=0.8, nsample=12, mlp=[384,384,384,512])
+#         self.sa4 = PointnetSAModule(mlp=[512,512,512,1024])
+
+#     def forward(self, xyz):
+#         xyz = xyz.permute(0,2,1)
+#         l0_xyz = xyz[:,:,:3].contiguous()
+#         l0_points = xyz[:,:,3:].transpose(1, 2).contiguous()
+#         B, _, _ = xyz.shape#16,6,778
+#         # if self.normal_channel:
+#         #     norm = xyz[:, 3:, :]
+#         #     xyz = xyz[:, :3, :]
+#         # else:
+#         #     norm = None
+#         l1_xyz, l1_points = self.sa1(l0_xyz, l0_points)#16,3,512,16,128,512
+#         l2_xyz, l2_points = self.sa2(l1_xyz, l1_points)#16,3,128,16,256,128
+#         l3_xyz, l3_points = self.sa3(l2_xyz, l2_points)#16,1024,1
+#         l4_xyz, l4_points = self.sa4(l3_xyz, l3_points)#16,1024,1
+#         # x = l4_points.view(B, 256)
+#         # x = l4_points.view(B, 512)
+#         x = l4_points.view(B, 1024)
+#         return x
+    
 class PointNet2(nn.Module):
     def __init__(self, in_channel, normal_channel=True):
         super(PointNet2, self).__init__()
         self.normal_channel = normal_channel
-        self.sa1 = PointNetSetAbstraction(npoint=778, radius=0.2, nsample=16, in_channel=in_channel, mlp=[32, 32, 64], group_all=False)
-        self.sa2 = PointNetSetAbstraction(npoint=388, radius=0.4, nsample=32, in_channel=64 + 3, mlp=[64, 64, 128], group_all=False)
-        self.sa3 = PointNetSetAbstraction(npoint=194, radius=0.8, nsample=64, in_channel=128 + 3, mlp=[128, 128, 256], group_all=False)
-        # self.sa4 = PointNetSetAbstraction(npoint=None, radius=None, nsample=None, in_channel=256 + 3, mlp=[256, 256, 256], group_all=True)
-        self.sa4 = PointNetSetAbstraction(npoint=None, radius=None, nsample=None, in_channel=256 + 3, mlp=[256, 256, 512], group_all=True)
+        # self.sa1 = PointnetSAModule(npoint=778, radius=0.2, nsample=16, mlp=[in_channel,32,32,64])
+        # self.sa2 = PointnetSAModule(npoint=388, radius=0.4, nsample=32, mlp=[64,64,64,128])
+        # self.sa3 = PointnetSAModule(npoint=194, radius=0.8, nsample=64, mlp=[128,128,128,256])
+        # self.sa4 = PointnetSAModule(mlp=[256,256,256,512])
+
+        # self.sa1 = PointnetSAModule(npoint=512, radius=0.2, nsample=12, mlp=[in_channel,2048,2048,1024])
+        # self.sa2 = PointnetSAModule(npoint=128, radius=0.4, nsample=12, mlp=[1024,1024,1024,512])
+        # self.sa3 = PointnetSAModule(npoint=32, radius=0.8, nsample=12, mlp=[512,512,512,1024])
+        # self.sa4 = PointnetSAModule(mlp=[1024,1024,1024,2048])
+
+        self.sa1 = PointnetSAModule(npoint=16, radius=0.2, nsample=16, mlp=[in_channel,32,32,128])
+        self.sa2 = PointnetSAModule(npoint=12, radius=0.4, nsample=16, mlp=[128,128,128,256])
+        self.sa3 = PointnetSAModule(npoint=8, radius=0.8, nsample=16, mlp=[256,256,256,512])
+        self.fp3 = PointnetFPModule(mlp=[512+256,512,512])
+        self.fp2 = PointnetFPModule(mlp=[512+128,256,256])
+        self.fp1 = PointnetFPModule(mlp=[256,256,256])
+
     def forward(self, xyz):
+        xyz = xyz.permute(0,2,1)
+        l0_xyz = xyz[:,:,:3].contiguous()
+        l0_points = xyz[:,:,3:].transpose(1, 2).contiguous()
         B, _, _ = xyz.shape#16,6,778
-        if self.normal_channel:
-            norm = xyz[:, 3:, :]
-            xyz = xyz[:, :3, :]
-        else:
-            norm = None
-        l1_xyz, l1_points = self.sa1(xyz, norm)#16,3,512,16,128,512
+        # if self.normal_channel:
+        #     norm = xyz[:, 3:, :]
+        #     xyz = xyz[:, :3, :]
+        # else:
+        #     norm = None
+        l1_xyz, l1_points = self.sa1(l0_xyz, l0_points)#16,3,512,16,128,512
         l2_xyz, l2_points = self.sa2(l1_xyz, l1_points)#16,3,128,16,256,128
         l3_xyz, l3_points = self.sa3(l2_xyz, l2_points)#16,1024,1
-        l4_xyz, l4_points = self.sa4(l3_xyz, l3_points)#16,1024,1
+        # l4_xyz, l4_points = self.sa4(l3_xyz, l3_points)#16,1024,1
+
+        l2_points = self.fp3(l2_xyz, l3_xyz, l2_points, l3_points)#48,128,512     
+        l1_points = self.fp2(l1_xyz, l2_xyz, l1_points, l2_points)#48,128,512
+        l0_points = self.fp1(l0_xyz, l1_xyz, None, l1_points)#48,128,990
         # x = l4_points.view(B, 256)
-        x = l4_points.view(B, 512)
-        return x
-    
+        # x = l4_points.view(B, 512)
+        # x = l4_points.view(B, 1024)
+        return l0_points
+
+
+# class PointNetObject(nn.Module):
+#     def __init__(self, in_channel, normal_channel=True):
+#         super(PointNetObject, self).__init__()
+#         self.normal_channel = normal_channel
+#         # self.sa1 = PointnetSAModule(npoint=1024, radius=0.2, nsample=6, mlp=[in_channel,32,32,64])
+#         # self.sa2 = PointnetSAModule(npoint=512, radius=0.4, nsample=12, mlp=[64,64,64,128])
+#         # self.sa3 = PointnetSAModule(npoint=128, radius=0.8, nsample=32, mlp=[128,128,128,256])
+#         # self.sa4 = PointnetSAModule(mlp=[256,256,256,512])
+
+#         # self.sa1 = PointnetSAModule(npoint=1024, radius=0.2, nsample=12, mlp=[in_channel,64,64,256])
+#         # self.sa2 = PointnetSAModule(npoint=256, radius=0.4, nsample=12, mlp=[256,256,256,512])
+#         # self.sa3 = PointnetSAModule(npoint=64, radius=0.8, nsample=12, mlp=[512,512,512,1024])
+#         # self.sa4 = PointnetSAModule(mlp=[1024,1024,1024,2048])
+
+#         self.sa1 = PointnetSAModule(npoint=512, radius=0.2, nsample=12, mlp=[in_channel,256,256,320])
+#         self.sa2 = PointnetSAModule(npoint=128, radius=0.4, nsample=12, mlp=[320,320,320,384])
+#         self.sa3 = PointnetSAModule(npoint=32, radius=0.8, nsample=12, mlp=[384,384,384,512])
+#         self.sa4 = PointnetSAModule(mlp=[512,512,512,1024])
+
+#     def forward(self, xyz):
+#         xyz = xyz.permute(0,2,1)
+#         l0_xyz = xyz[:,:,:3].contiguous()
+#         l0_points = xyz[:,:,3:].transpose(1, 2).contiguous()
+#         B, _, _ = xyz.shape#16,6,778
+#         # if self.normal_channel:
+#         #     norm = xyz[:, 3:, :]
+#         #     xyz = xyz[:, :3, :]
+#         # else:
+#         #     norm = None
+#         l1_xyz, l1_points = self.sa1(l0_xyz, l0_points)#16,3,512,16,128,512
+#         l2_xyz, l2_points = self.sa2(l1_xyz, l1_points)#16,3,128,16,256,128
+#         l3_xyz, l3_points = self.sa3(l2_xyz, l2_points)#16,1024,1
+#         l4_xyz, l4_points = self.sa4(l3_xyz, l3_points)#16,1024,1
+#         # x = l4_points.view(B, 256)
+#         x = l4_points.view(B, 1024)
+#         return x
+
+class PointNetObject(nn.Module):
+    def __init__(self, in_channel, normal_channel=True):
+        super(PointNetObject, self).__init__()
+        self.normal_channel = normal_channel
+        # self.sa1 = PointnetSAModule(npoint=1024, radius=0.2, nsample=6, mlp=[in_channel,32,32,64])
+        # self.sa2 = PointnetSAModule(npoint=512, radius=0.4, nsample=12, mlp=[64,64,64,128])
+        # self.sa3 = PointnetSAModule(npoint=128, radius=0.8, nsample=32, mlp=[128,128,128,256])
+        # self.sa4 = PointnetSAModule(mlp=[256,256,256,512])
+
+        # self.sa1 = PointnetSAModule(npoint=1024, radius=0.2, nsample=12, mlp=[in_channel,64,64,256])
+        # self.sa2 = PointnetSAModule(npoint=256, radius=0.4, nsample=12, mlp=[256,256,256,512])
+        # self.sa3 = PointnetSAModule(npoint=64, radius=0.8, nsample=12, mlp=[512,512,512,1024])
+        # self.sa4 = PointnetSAModule(mlp=[1024,1024,1024,2048])
+
+        self.sa1 = PointnetSAModule(npoint=24, radius=0.2, nsample=16, mlp=[in_channel,32,32,128])
+        self.sa2 = PointnetSAModule(npoint=18, radius=0.4, nsample=16, mlp=[128,128,128,256])
+        self.sa3 = PointnetSAModule(npoint=12, radius=0.8, nsample=16, mlp=[256,256,256,512])
+        self.fp3 = PointnetFPModule(mlp=[512+256,512,512])
+        self.fp2 = PointnetFPModule(mlp=[512+128,256,256])
+        self.fp1 = PointnetFPModule(mlp=[256,256,256])
+
+    def forward(self, xyz):
+        xyz = xyz.permute(0,2,1)
+        l0_xyz = xyz[:,:,:3].contiguous()
+        l0_points = xyz[:,:,3:].transpose(1, 2).contiguous()
+        B, _, _ = xyz.shape#16,6,778
+        # if self.normal_channel:
+        #     norm = xyz[:, 3:, :]
+        #     xyz = xyz[:, :3, :]
+        # else:
+        #     norm = None
+        l1_xyz, l1_points = self.sa1(l0_xyz, l0_points)#16,3,512,16,128,512
+        l2_xyz, l2_points = self.sa2(l1_xyz, l1_points)#16,3,128,16,256,128
+        l3_xyz, l3_points = self.sa3(l2_xyz, l2_points)#16,1024,1
+        # l4_xyz, l4_points = self.sa4(l3_xyz, l3_points)#16,1024,1
+
+        l2_points = self.fp3(l2_xyz, l3_xyz, l2_points, l3_points)#48,128,512     
+        l1_points = self.fp2(l1_xyz, l2_xyz, l1_points, l2_points)#48,128,512
+        l0_points = self.fp1(l0_xyz, l1_xyz, None, l1_points)#48,128,990
+        # x = l4_points.view(B, 256)
+        # x = l4_points.view(B, 1024)
+        return l0_points
+     
 class ReconDecoder(nn.Module):
     def __init__(self, input_dim = 256+3):
         super(ReconDecoder, self).__init__()

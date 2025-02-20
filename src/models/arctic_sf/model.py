@@ -14,9 +14,8 @@ from src.nets.backbone.residual import Residual
 
 
 class ArcticSF(nn.Module):
-    def __init__(self, backbone, focal_length, img_res, args):
+    def __init__(self, backbone, pose_regressor):
         super(ArcticSF, self).__init__()
-        self.args = args
         # if backbone == "resnet50":
         #     from src.nets.backbone.resnet import resnet50 as img_backbone
         # elif backbone == "resnet18":
@@ -53,26 +52,38 @@ class ArcticSF(nn.Module):
         #     out_dim=pt_out_dim,
         # )
 
-        self.head_r = HandHMR(feat_dim, is_rhand=True, n_iter=3)
-        self.head_l = HandHMR(feat_dim, is_rhand=False, n_iter=3)
-        self.head_o = ObjectHMR(feat_dim, n_iter=3)
+        # self.head_r = HandHMR(feat_dim, is_rhand=True, n_iter=3)
+        # self.head_l = HandHMR(feat_dim, is_rhand=False, n_iter=3)
+        # self.head_o = ObjectHMR(feat_dim, n_iter=3)
 
         self.img_encoder = Residual(feat_dim, 256)
-        self.regressor = Regressor(focal_length=focal_length, img_res=img_res)
-        self.refinement1 = Refinement(feat_dim, self.hand_joint_num, self.object_joint_num, hand_specs, obj_specs)
+        # self.regressor = Regressor(focal_length=focal_length, img_res=img_res)
+        self.refinement = Refinement(feat_dim, self.hand_joint_num, self.object_joint_num, hand_specs, obj_specs)
+        self.regressor = pose_regressor
 
         # self.mode = "train"
-        self.img_res = img_res
-        self.focal_length = focal_length
+        # self.img_res = img_res
+        # self.focal_length = focal_length
     
-    def forward(self, features, meta_info, field):
+    def forward(self, features, meta_info, init_result, field):
         # images = inputs["img"]#64,3,224,224
 
         # field_r = field["dist.ro"][:,:,None]#64,1,21
         # field_l = field["dist.lo"][:,:,None]#64,1,21
+    
+        # field_r = field["dist.ro"][:,:,None]*field["direc.ro"]#64,1,21
+        # field_l = field["dist.lo"][:,:,None]*field["direc.lo"]#64,1,21
+        # field_or = field["dist.or"][:,:,None]*field["direc.or"]#64,1,21
+        # field_ol = field["dist.ol"][:,:,None]*field["direc.ol"]#64,1,21
 
-        field_r = field["dist.ro"][:,:,None]*field["direc.ro"]#64,1,21
-        field_l = field["dist.lo"][:,:,None]*field["direc.lo"]#64,1,21
+        # field_r = field_r.gather(dim=1, index = meta_info['nearest_r'].repeat(1, 1, 3))
+        # field_l = field_l.gather(dim=1, index = meta_info['nearest_l'].repeat(1, 1, 3))
+        # field_or = field_or.gather(dim=1, index = meta_info['nearest_o'].repeat(1, 1, 3))
+        # field_ol = field_ol.gather(dim=1, index = meta_info['nearest_o'].repeat(1, 1, 3))
+        # field_r = field["dist.ro.kp"][:,:,None]*field["direc.ro"]#64,1,21
+        # field_l = field["dist.lo.kp"][:,:,None]*field["direc.lo"]#64,1,21
+        # field_or = field["dist.or.kp"][:,:,None]*field["direc.or"]#64,1,21
+        # field_ol = field["dist.ol.kp"][:,:,None]*field["direc.ol"]#64,1,21
 
         # field_r = field["field.ro"]
         # field_l = field["field.lo"]
@@ -89,30 +100,30 @@ class ArcticSF(nn.Module):
         #recover the spatial dimension
         # features = features.permute(0,2,1).reshape(-1,self.feat_dim,14,14).contiguous()#64,196,768->64,768,196->64,768,14,14
 
-        feat_vec = features.view(features.shape[0], features.shape[1], -1).sum(dim=2)#64,768
+        # feat_vec = features.view(features.shape[0], features.shape[1], -1).sum(dim=2)#64,768
 
-        hmr_output_r = self.head_r(features)#64,2048,7,7 -> 64,2048
-        hmr_output_l = self.head_l(features)
-        hmr_output_o = self.head_o(features)
+        # hmr_output_r = self.head_r(features)#64,2048,7,7 -> 64,2048
+        # hmr_output_l = self.head_l(features)
+        # hmr_output_o = self.head_o(features)
 
-        #initial regressor
-        mano_output_r, mano_output_l, arti_output = self.regressor(hmr_output_r, hmr_output_l, hmr_output_o, meta_info)
+        # #initial regressor
+        # mano_output_r, mano_output_l, arti_output = self.regressor(hmr_output_r, hmr_output_l, hmr_output_o, meta_info)
 
         # second stage, refinement
         img_feat_low = self.img_encoder(features)
 
         refine_mano_output_r, refine_mano_output_l, refine_mano_output_o \
-              = self.refinement1(img_feat_low, features, field_r, field_l, None, \
-                                mano_output_r, mano_output_l, arti_output, \
-                                    hmr_output_r, hmr_output_l, hmr_output_o)  
+              = self.refinement(img_feat_low, features, None, None, None, None,\
+                                init_result["mano_output_r"], init_result["mano_output_l"], init_result["arti_output"], \
+                                    init_result["hmr_output_r"], init_result["hmr_output_l"], init_result["hmr_output_o"])  
         #second stage, regressor
         mano_output_r, mano_output_l, arti_output = self.regressor(refine_mano_output_r, \
                                                                    refine_mano_output_l, refine_mano_output_o, meta_info)
 
         #add init camera parameters
-        root_r_init = hmr_output_r["cam_t.wp.init"]
-        root_l_init = hmr_output_l["cam_t.wp.init"]
-        root_o_init = hmr_output_o["cam_t.wp.init"]
+        root_r_init = init_result["hmr_output_r"]["cam_t.wp.init"]
+        root_l_init = init_result["hmr_output_l"]["cam_t.wp.init"]
+        root_o_init = init_result["hmr_output_o"]["cam_t.wp.init"]
         mano_output_r["cam_t.wp.init.r"] = root_r_init
         mano_output_l["cam_t.wp.init.l"] = root_l_init
         arti_output["cam_t.wp.init"] = root_o_init
@@ -124,5 +135,5 @@ class ArcticSF(nn.Module):
         output.merge(mano_output_r)
         output.merge(mano_output_l)
         output.merge(arti_output)
-        output["feat_vec"] = feat_vec.cpu().detach()
+        # output["feat_vec"] = feat_vec.cpu().detach()
         return output

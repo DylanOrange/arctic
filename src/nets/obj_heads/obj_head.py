@@ -44,13 +44,16 @@ class ArtiHead(nn.Module):
         # camera coord
         bbox3d_cam = bbox3d + cam_t[:, None, :]
         kp3d_cam = kp3d + cam_t[:, None, :]
+        v3d_cam = out["v"] + cam_t[:, None, :]
 
         # 2d keypoints
         kp2d_unnorm = tf.project2d_batch(K, kp3d_cam)
         bbox2d = tf.project2d_batch(K, bbox3d_cam)
+        v2d = tf.project2d_batch(K, v3d_cam)
 
         kp2d = data_utils.normalize_kp2d(kp2d_unnorm, self.img_res)
         bbox2d = data_utils.normalize_kp2d(bbox2d, self.img_res)
+        v2d = data_utils.normalize_kp2d(v2d, self.img_res)
         num_kps = kp2d.shape[1] // 2
 
         output = xdict()
@@ -74,6 +77,7 @@ class ArtiHead(nn.Module):
         output["radian"] = angle
 
         output["v.cam"] = out["v"] + cam_t[:, None, :]
+        output["v2d.cam"] = v2d
         output["v_len"] = out["v_len"]
         output["f"] = out["f"]
         output["f_len"] = out["f_len"]

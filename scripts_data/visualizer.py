@@ -73,7 +73,7 @@ def parse_args():
 
 def main():
     with open(
-        f"/data/dylu/data/arctic/arctic_data/data/meta/misc.json",
+        f"/ssd/dylu/data/arctic/arctic_data/data/meta/misc.json",
         "r",
     ) as f:
         subject_meta = json.load(f)

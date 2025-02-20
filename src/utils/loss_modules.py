@@ -41,10 +41,37 @@ def compute_contact_devi_loss(pred, targets):
     cd_lo = torch.nan_to_num(cd_lo)
     return cd_ro, cd_lo
 
+def compute_kp_contact_devi_loss(pred, targets):
+    cd_ro = contact_deviation(
+        pred["object.kp3d.cam"],
+        pred["mano.j3d.cam.r"],
+        targets["dist.ro.kp"],
+        targets["idx.ro.kp"],
+        targets["is_valid"],
+        targets["right_valid"],
+        threshold=0.1,
+    )
 
-def contact_deviation(pred_v3d_o, pred_v3d_r, dist_ro, idx_ro, is_valid, _right_valid):
+    cd_lo = contact_deviation(
+        pred["object.kp3d.cam"],
+        pred["mano.j3d.cam.l"],
+        targets["dist.lo.kp"],
+        targets["idx.lo.kp"],
+        targets["is_valid"],
+        targets["left_valid"],
+        threshold=0.1,
+    )
+
+    cd_ro = nanmean(cd_ro)
+    cd_lo = nanmean(cd_lo)
+    cd_ro = torch.nan_to_num(cd_ro)
+    cd_lo = torch.nan_to_num(cd_lo)
+    return cd_ro, cd_lo
+
+def contact_deviation(pred_v3d_o, pred_v3d_r, dist_ro, idx_ro, is_valid, _right_valid, threshold=(3 * 1e-3)):
     right_valid = _right_valid.clone() * is_valid
-    contact_dist = 3 * 1e-3  # 3mm considered in contact
+    contact_dist = threshold  # 3mm considered in contact
+    # contact_dist = 0.1
     vo_r_corres = torch.gather(pred_v3d_o, 1, idx_ro[:, :, None].repeat(1, 1, 3))
 
     # displacement vector H->O

@@ -47,6 +47,9 @@ class MANOHead(nn.Module):
         joints2d_unnorm = tf.project2d_batch(K, joints3d_cam)
         joints2d = data_utils.normalize_kp2d(joints2d_unnorm, self.img_res)#normalize to -1 to +1
 
+        vertex2d = tf.project2d_batch(K, v3d_cam)
+        vertex2d = data_utils.normalize_kp2d(vertex2d, self.img_res)
+
         output["cam_t.wp"] = cam
         output["cam_t"] = cam_t
         output["joints3d"] = mano_output.joints
@@ -55,6 +58,7 @@ class MANOHead(nn.Module):
         output["v3d.cam"] = v3d_cam
         output["j2d.cam"] = joints2d_unnorm
         output["j2d.norm"] = joints2d
+        output["v2d.cam"] = vertex2d
         output["beta"] = shape
         output["pose"] = rotmat_original
 

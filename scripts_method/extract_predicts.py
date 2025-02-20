@@ -1,6 +1,7 @@
 import os
 import json
 import os.path as op
+# os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 import sys
 from pprint import pformat
 
@@ -40,11 +41,20 @@ def main():
     device = "cuda:0"
     wrapper = factory.fetch_model(args).to(device)
     assert args.load_ckpt != ""
-    wrapper.load_state_dict(torch.load(args.load_ckpt)["state_dict"])
+    ckpt = torch.load(args.load_ckpt, map_location='cuda:0')['state_dict']
+    # mano = {key: value for key, value in ckpt.items() if key.startswith('mano')} 
+    # # ckpt_better_path = 'logs/40718fffc/checkpoints/epoch=19.ckpt'
+    # ckpt_better_path = 'logs/10b769e67/checkpoints/epoch=19.ckpt'
+    # ckpt_better = torch.load(ckpt_better_path, map_location='cuda:0')
+    # ckpt_better = {'model.' + key: value for key, value in ckpt_better.items()}
+    # ckpt_better.update(mano)
+
+    # wrapper.load_state_dict(torch.load(args.load_ckpt)['state_dict'])
+    wrapper.load_state_dict(ckpt)
     logger.info(f"Loaded weights from {args.load_ckpt}")
     wrapper.eval()
     wrapper.to(device)
-    wrapper.model.arti_head.object_tensors.to(device)
+    wrapper.model.pose_regressor.arti_head.object_tensors.to(device)
     # wrapper.metric_dict = []
 
     exp_key = op.abspath(args.load_ckpt).split("/")[-3]
@@ -56,7 +66,7 @@ def main():
     out_dir = op.join(args.load_ckpt.split("checkpoints")[0], "eval")
 
     with open(
-        f"/data/dylu/data/arctic/arctic_data/data/splits_json/protocol_{args.setup}.json",
+        f"/ssd/dylu/data/arctic/arctic_data/data/splits_json/protocol_{args.setup}.json",
         "r",
     ) as f:
         seqs = json.load(f)[args.run_on]
